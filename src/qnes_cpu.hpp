@@ -26,7 +26,7 @@ enum class AddressingMode : u8 {
 
 class MemBus {
  public:
-  MemBus(Memory &memory) : memory(memory){};
+  MemBus(Memory &memory) : memory(memory) {};
   MemBus(const MemBus &) = delete;
   MemBus &operator=(const MemBus &) = delete;
   MemBus(MemBus &&) = delete;
@@ -50,7 +50,7 @@ class MemBus {
 
 class CPU {
  public:
-  CPU(Memory &memory) : mem_bus(memory){};
+  CPU(Memory &memory) : mem_bus(memory) {};
   CPU(const CPU &) = delete;
   CPU &operator=(const CPU &) = delete;
   CPU(CPU &&) = delete;
@@ -114,6 +114,8 @@ class CPU {
 
 struct CPU_Testing {
   static void SetPC(CPU &cpu, u16 pc) { cpu.state.pc = pc; }
+  static void SetCarry(CPU &cpu, bool carry) { cpu.state.status.carry = carry; }
+  static bool GetCarry(const CPU &cpu) { return cpu.state.status.carry; }
   static void SetA(CPU &cpu, u8 a) { cpu.state.a = a; }
   static void SetX(CPU &cpu, u8 x) { cpu.state.x = x; }
   static void SetY(CPU &cpu, u8 y) { cpu.state.y = y; }

@@ -156,6 +156,20 @@ struct ISA {
     static constexpr u8 OPCODE = 0xFF;
     static constexpr u8 CYCLES = 0;
   };
+
+  template <AddressingMode MODE>
+  struct SBC {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid SBC Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct CMP {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid CMP Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
 };
 
 template <>
@@ -683,6 +697,118 @@ struct ISA::ADC<AddressingMode::IndirectY> {
   static constexpr u8 CYCLES = 5;  // +1 if page crossed
 };
 
+template <>
+struct ISA::SBC<AddressingMode::Immediate> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xE9;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::SBC<AddressingMode::ZeroPage> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xE5;
+  static constexpr u8 CYCLES = 3;
+};
+
+template <>
+struct ISA::SBC<AddressingMode::ZeroPageX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xF5;
+  static constexpr u8 CYCLES = 4;
+};
+
+template <>
+struct ISA::SBC<AddressingMode::Absolute> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xED;
+  static constexpr u8 CYCLES = 4;
+};
+
+template <>
+struct ISA::SBC<AddressingMode::AbsoluteX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xFD;
+  static constexpr u8 CYCLES = 4;  // +1 if page crossed
+};
+
+template <>
+struct ISA::SBC<AddressingMode::AbsoluteY> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xF9;
+  static constexpr u8 CYCLES = 4;  // +1 if page crossed
+};
+
+template <>
+struct ISA::SBC<AddressingMode::XIndirect> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xE1;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::SBC<AddressingMode::IndirectY> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xF1;
+  static constexpr u8 CYCLES = 5;  // +1 if page crossed
+};
+
+template <>
+struct ISA::CMP<AddressingMode::Immediate> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xC9;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::CMP<AddressingMode::ZeroPage> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xC5;
+  static constexpr u8 CYCLES = 3;
+};
+
+template <>
+struct ISA::CMP<AddressingMode::ZeroPageX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xD5;
+  static constexpr u8 CYCLES = 4;
+};
+
+template <>
+struct ISA::CMP<AddressingMode::Absolute> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xCD;
+  static constexpr u8 CYCLES = 4;
+};
+
+template <>
+struct ISA::CMP<AddressingMode::AbsoluteX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xDD;
+  static constexpr u8 CYCLES = 4;  // +1 if page crossed
+};
+
+template <>
+struct ISA::CMP<AddressingMode::AbsoluteY> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xD9;
+  static constexpr u8 CYCLES = 4;  // +1 if page crossed
+};
+
+template <>
+struct ISA::CMP<AddressingMode::XIndirect> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xC1;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::CMP<AddressingMode::IndirectY> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xD1;
+  static constexpr u8 CYCLES = 5;  // +1 if page crossed
+};
+
 inline constexpr auto Instructions = [] constexpr {
   std::array<ISA::InstructionFunc, 256> table{};
   table.fill(nullptr);
@@ -872,6 +998,42 @@ inline constexpr auto Instructions = [] constexpr {
       ISA::ADC<AddressingMode::XIndirect>::Execute;
   table[ISA::ADC<AddressingMode::IndirectY>::OPCODE] =
       ISA::ADC<AddressingMode::IndirectY>::Execute;
+
+  // SBC - Subtract with Carry
+  table[ISA::SBC<AddressingMode::Immediate>::OPCODE] =
+      ISA::SBC<AddressingMode::Immediate>::Execute;
+  table[ISA::SBC<AddressingMode::ZeroPage>::OPCODE] =
+      ISA::SBC<AddressingMode::ZeroPage>::Execute;
+  table[ISA::SBC<AddressingMode::ZeroPageX>::OPCODE] =
+      ISA::SBC<AddressingMode::ZeroPageX>::Execute;
+  table[ISA::SBC<AddressingMode::Absolute>::OPCODE] =
+      ISA::SBC<AddressingMode::Absolute>::Execute;
+  table[ISA::SBC<AddressingMode::AbsoluteX>::OPCODE] =
+      ISA::SBC<AddressingMode::AbsoluteX>::Execute;
+  table[ISA::SBC<AddressingMode::AbsoluteY>::OPCODE] =
+      ISA::SBC<AddressingMode::AbsoluteY>::Execute;
+  table[ISA::SBC<AddressingMode::XIndirect>::OPCODE] =
+      ISA::SBC<AddressingMode::XIndirect>::Execute;
+  table[ISA::SBC<AddressingMode::IndirectY>::OPCODE] =
+      ISA::SBC<AddressingMode::IndirectY>::Execute;
+
+  // CMP - Compare Accumulator
+  table[ISA::CMP<AddressingMode::Immediate>::OPCODE] =
+      ISA::CMP<AddressingMode::Immediate>::Execute;
+  table[ISA::CMP<AddressingMode::ZeroPage>::OPCODE] =
+      ISA::CMP<AddressingMode::ZeroPage>::Execute;
+  table[ISA::CMP<AddressingMode::ZeroPageX>::OPCODE] =
+      ISA::CMP<AddressingMode::ZeroPageX>::Execute;
+  table[ISA::CMP<AddressingMode::Absolute>::OPCODE] =
+      ISA::CMP<AddressingMode::Absolute>::Execute;
+  table[ISA::CMP<AddressingMode::AbsoluteX>::OPCODE] =
+      ISA::CMP<AddressingMode::AbsoluteX>::Execute;
+  table[ISA::CMP<AddressingMode::AbsoluteY>::OPCODE] =
+      ISA::CMP<AddressingMode::AbsoluteY>::Execute;
+  table[ISA::CMP<AddressingMode::XIndirect>::OPCODE] =
+      ISA::CMP<AddressingMode::XIndirect>::Execute;
+  table[ISA::CMP<AddressingMode::IndirectY>::OPCODE] =
+      ISA::CMP<AddressingMode::IndirectY>::Execute;
 
   return table;
 }();
