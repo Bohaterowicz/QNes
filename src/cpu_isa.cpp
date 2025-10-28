@@ -7,16 +7,16 @@
 namespace QNes {
 
 struct ISA_detail {
-  enum class LogicalOperation : u8 {
+  enum class Operation : u8 {
     AND,
     EOR,
     ORA,
     BIT,
-  };
-
-  enum class ArithmeticOperation : u8 {
     ADC,
     SBC,
+    CMP,
+    INC,
+    DEC,
   };
 
   static QNES_FORCE_INLINE void ReadValueFromMem(MemBus &mem_bus, u8 high_addr,
@@ -43,35 +43,53 @@ struct ISA_detail {
         (~(value ^ operand) & (value ^ result) & 0x80) != 0;
   }
 
-  template <LogicalOperation OP>
-  static QNES_FORCE_INLINE void ExecuteLogicalOperation(u8 &reg, u8 value) {
-    if constexpr (OP == LogicalOperation::AND) {
-      reg = reg & value;
-    } else if constexpr (OP == LogicalOperation::EOR) {
-      reg = reg ^ value;
-    } else if constexpr (OP == LogicalOperation::ORA) {
-      reg = reg | value;
-    } else {
-      ASSERT(false, "Invalid logical operation");
-    }
-  }
-
-  template <ArithmeticOperation OP>
-  static QNES_FORCE_INLINE void ExecuteArithmeticOperation(CPU &cpu, u8 &reg) {
-    if constexpr (OP == ArithmeticOperation::ADC) {
-      u16 result =
-          reg + cpu.mem_bus.op_latch + (cpu.state.status.carry ? 1 : 0);
+  template <Operation OP>
+  static QNES_FORCE_INLINE void ExecuteOperation(CPU &cpu, u8 &reg,
+                                                 u8 operand [[maybe_unused]]) {
+    if constexpr (OP == Operation::AND) {
+      reg = reg & operand;
+      ISA_detail::SetZNFlags(cpu, reg);
+    } else if constexpr (OP == Operation::EOR) {
+      reg = reg ^ operand;
+      ISA_detail::SetZNFlags(cpu, reg);
+    } else if constexpr (OP == Operation::ORA) {
+      reg = reg | operand;
+      ISA_detail::SetZNFlags(cpu, reg);
+    } else if constexpr (OP == Operation::BIT) {
+      const u8 result = reg & operand;
+      cpu.state.status.zero = (result == 0);
+      cpu.state.status.negative = (operand & 0x80) != 0;
+      cpu.state.status.overflow = (operand & 0x40) != 0;
+    } else if constexpr (OP == Operation::ADC) {
+      u8 reg_begore = reg;
+      u16 result = reg + operand + (cpu.state.status.carry ? 1 : 0);
       cpu.state.status.carry = (result & 0x100) != 0;
       reg = U16Low(result);
-    } else if constexpr (OP == ArithmeticOperation::SBC) {
+      ISA_detail::SetZNFlags(cpu, reg);
+      SetArithmeticOverflowFlag(cpu, reg_begore, operand, result);
+    } else if constexpr (OP == Operation::SBC) {
       // NOTE: A ← A - M - (1 - C) == A ← A + (~M) + C
       // so we can use the same code for both ADC and SBC
-      u8 value = ~cpu.mem_bus.op_latch;
-      u16 result = reg + value + (cpu.state.status.carry ? 1 : 0);
+      u8 reg_begore = reg;
+      u8 tmp_value = ~operand;
+      u16 result = reg + tmp_value + (cpu.state.status.carry ? 1 : 0);
       cpu.state.status.carry = (result & 0x100) != 0;
       reg = U16Low(result);
+      ISA_detail::SetZNFlags(cpu, reg);
+      SetArithmeticOverflowFlag(cpu, reg_begore, tmp_value, result);
+    } else if constexpr (OP == Operation::CMP) {
+      u16 result = reg - operand;
+      cpu.state.status.carry = (result & 0x100) != 0;
+      SetZNFlags(cpu, U16Low(result));
+      cpu.state.status.carry = result >= 0;
+    } else if constexpr (OP == Operation::INC) {
+      ++reg;
+      ISA_detail::SetZNFlags(cpu, reg);
+    } else if constexpr (OP == Operation::DEC) {
+      --reg;
+      ISA_detail::SetZNFlags(cpu, reg);
     } else {
-      ASSERT(false, "Invalid arithmetic operation");
+      ASSERT(false, "Invalid operation");
     }
   }
 
@@ -532,14 +550,13 @@ struct ISA_detail {
     };
   }
 
-  template <LogicalOperation OP>
-  static QNES_FORCE_INLINE void LogicalOperationImmediate(CPU &cpu, u8 &reg) {
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationImmediate(CPU &cpu, u8 &reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
         ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
                                      cpu.mem_bus.op_latch);
-        ISA_detail::ExecuteLogicalOperation<OP>(reg, cpu.mem_bus.op_latch);
-        ISA_detail::SetZNFlags(cpu, reg);
+        ISA_detail::ExecuteOperation<OP>(cpu, reg, cpu.mem_bus.op_latch);
         ++cpu.state.pc;
         cpu.instruction_cycle = 0;
       } break;
@@ -548,8 +565,8 @@ struct ISA_detail {
     }
   }
 
-  template <LogicalOperation OP>
-  static QNES_FORCE_INLINE void LogicalOperationZeroPage(CPU &cpu, u8 &reg) {
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationZeroPage(CPU &cpu, u8 &reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
         ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
@@ -560,15 +577,7 @@ struct ISA_detail {
       case 2: {
         ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl,
                                      cpu.mem_bus.op_latch);
-        if constexpr (OP == LogicalOperation::BIT) {
-          const u8 result = cpu.mem_bus.op_latch & reg;
-          cpu.state.status.zero = (result == 0);
-          cpu.state.status.negative = (cpu.mem_bus.op_latch & 0x80) != 0;
-          cpu.state.status.overflow = (cpu.mem_bus.op_latch & 0x40) != 0;
-        } else {
-          ISA_detail::ExecuteLogicalOperation<OP>(reg, cpu.mem_bus.op_latch);
-          ISA_detail::SetZNFlags(cpu, reg);
-        }
+        ISA_detail::ExecuteOperation<OP>(cpu, reg, cpu.mem_bus.op_latch);
         cpu.instruction_cycle = 0;
       } break;
       default:
@@ -576,10 +585,42 @@ struct ISA_detail {
     }
   }
 
-  template <LogicalOperation OP>
-  static QNES_FORCE_INLINE void LogicalOperationZeroPageIndexed(CPU &cpu,
-                                                                u8 &reg,
-                                                                u8 &idx_reg) {
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationZeroPage_ReadModifyWrite(CPU &cpu) {
+    switch (cpu.instruction_cycle) {
+      case 1: {
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                     cpu.mem_bus.adl);
+        ++cpu.state.pc;
+        ++cpu.instruction_cycle;
+      } break;
+      case 2: {
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl,
+                                     cpu.mem_bus.op_latch);
+        ++cpu.instruction_cycle;
+      } break;
+      case 3: {
+        // dummy write
+        ISA_detail::WriteValueToMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl,
+                                    cpu.mem_bus.op_latch);
+        ISA_detail::ExecuteOperation<OP>(cpu, cpu.mem_bus.op_latch,
+                                         cpu.mem_bus.op_latch);
+        ++cpu.instruction_cycle;
+      } break;
+      case 4: {
+        // final write
+        ISA_detail::WriteValueToMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl,
+                                    cpu.mem_bus.op_latch);
+        cpu.instruction_cycle = 0;
+      } break;
+      default:
+        ASSERT(false, "Invalid cycle");
+    }
+  }
+
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationZeroPageIndexed(CPU &cpu, u8 &reg,
+                                                         u8 &idx_reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
         ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
@@ -596,8 +637,7 @@ struct ISA_detail {
       case 3: {
         ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl,
                                      cpu.mem_bus.op_latch);
-        ISA_detail::ExecuteLogicalOperation<OP>(reg, cpu.mem_bus.op_latch);
-        ISA_detail::SetZNFlags(cpu, reg);
+        ISA_detail::ExecuteOperation<OP>(cpu, reg, cpu.mem_bus.op_latch);
         cpu.instruction_cycle = 0;
       } break;
       default:
@@ -605,8 +645,48 @@ struct ISA_detail {
     }
   }
 
-  template <LogicalOperation OP>
-  static QNES_FORCE_INLINE void LogicalOperationAbsolute(CPU &cpu, u8 &reg) {
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationZeroPageIndexed_ReadModifyWrite(
+      CPU &cpu, u8 &idx_reg) {
+    switch (cpu.instruction_cycle) {
+      case 1: {
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                     cpu.mem_bus.adl);
+        ++cpu.state.pc;
+        ++cpu.instruction_cycle;
+      } break;
+      case 2: {
+        u8 dummy = 0;
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl, dummy);
+        cpu.mem_bus.adl = U16Low((static_cast<u16>(cpu.mem_bus.adl) + idx_reg));
+        ++cpu.instruction_cycle;
+      } break;
+      case 3: {
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl,
+                                     cpu.mem_bus.op_latch);
+        ++cpu.instruction_cycle;
+      } break;
+      case 4: {
+        // dummy write
+        ISA_detail::WriteValueToMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl,
+                                    cpu.mem_bus.op_latch);
+        ISA_detail::ExecuteOperation<OP>(cpu, cpu.mem_bus.op_latch,
+                                         cpu.mem_bus.op_latch);
+        ++cpu.instruction_cycle;
+      } break;
+      case 5: {
+        // final write
+        ISA_detail::WriteValueToMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl,
+                                    cpu.mem_bus.op_latch);
+        cpu.instruction_cycle = 0;
+      } break;
+      default:
+        ASSERT(false, "Invalid cycle");
+    }
+  }
+
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationAbsolute(CPU &cpu, u8 &reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
         ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
@@ -623,15 +703,7 @@ struct ISA_detail {
       case 3: {
         ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
                                      cpu.mem_bus.adl, cpu.mem_bus.op_latch);
-        if constexpr (OP == LogicalOperation::BIT) {
-          const u8 result = cpu.mem_bus.op_latch & reg;
-          cpu.state.status.zero = (result == 0);
-          cpu.state.status.negative = (cpu.mem_bus.op_latch & 0x80) != 0;
-          cpu.state.status.overflow = (cpu.mem_bus.op_latch & 0x40) != 0;
-        } else {
-          ISA_detail::ExecuteLogicalOperation<OP>(reg, cpu.mem_bus.op_latch);
-          ISA_detail::SetZNFlags(cpu, reg);
-        }
+        ISA_detail::ExecuteOperation<OP>(cpu, reg, cpu.mem_bus.op_latch);
         cpu.instruction_cycle = 0;
       } break;
       default:
@@ -639,10 +711,50 @@ struct ISA_detail {
     }
   }
 
-  template <LogicalOperation OP>
-  static QNES_FORCE_INLINE void LogicalOperationAbsoluteIndexed(CPU &cpu,
-                                                                u8 &reg,
-                                                                u8 &idx_reg) {
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationAbsolute_ReadModifyWrite(CPU &cpu) {
+    switch (cpu.instruction_cycle) {
+      case 1: {
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                     cpu.mem_bus.adl);
+        ++cpu.state.pc;
+        ++cpu.instruction_cycle;
+      } break;
+      case 2: {
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                     cpu.mem_bus.adh);
+        ++cpu.state.pc;
+        ++cpu.instruction_cycle;
+      } break;
+      case 3: {
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
+                                     cpu.mem_bus.adl, cpu.mem_bus.op_latch);
+        ++cpu.instruction_cycle;
+      } break;
+      case 4: {
+        // dummy write
+        ISA_detail::WriteValueToMem(cpu.mem_bus, cpu.mem_bus.adh,
+                                    cpu.mem_bus.adl,
+                                    cpu.mem_bus.op_latch);
+        ISA_detail::ExecuteOperation<OP>(cpu, cpu.mem_bus.op_latch,
+                                         cpu.mem_bus.op_latch);
+        ++cpu.instruction_cycle;
+      } break;
+      case 5: {
+        // final write
+        ISA_detail::WriteValueToMem(cpu.mem_bus, cpu.mem_bus.adh,
+                                    cpu.mem_bus.adl,
+                                    cpu.mem_bus.op_latch);
+        cpu.instruction_cycle = 0;
+      } break;
+      default:
+        ASSERT(false, "Invalid cycle");
+    }
+  }
+
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationAbsoluteIndexed(CPU &cpu, u8 &reg,
+                                                         u8 &idx_reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch low byte of address
@@ -675,8 +787,7 @@ struct ISA_detail {
           ++cpu.instruction_cycle;
         } else {
           // page was not crossed, execute logical operation and set flags
-          ISA_detail::ExecuteLogicalOperation<OP>(reg, cpu.mem_bus.op_latch);
-          ISA_detail::SetZNFlags(cpu, reg);
+          ISA_detail::ExecuteOperation<OP>(cpu, reg, cpu.mem_bus.op_latch);
           cpu.instruction_cycle = 0;
         }
       } break;
@@ -688,8 +799,7 @@ struct ISA_detail {
         // Read value from the effective address into the register
         ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
                                      cpu.mem_bus.adl, cpu.mem_bus.op_latch);
-        ISA_detail::ExecuteLogicalOperation<OP>(reg, cpu.mem_bus.op_latch);
-        ISA_detail::SetZNFlags(cpu, reg);
+        ISA_detail::ExecuteOperation<OP>(cpu, reg, cpu.mem_bus.op_latch);
         cpu.instruction_cycle = 0;
       } break;
       default:
@@ -697,8 +807,68 @@ struct ISA_detail {
     }
   }
 
-  template <LogicalOperation OP>
-  static QNES_FORCE_INLINE void LogicalOperationIndirectY(CPU &cpu, u8 &reg) {
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationAbsoluteIndexed_ReadModifyWrite(
+      CPU &cpu, u8 &idx_reg) {
+    switch (cpu.instruction_cycle) {
+      case 1: {
+        // Fetch low byte of address
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                     cpu.mem_bus.adl);
+        ++cpu.state.pc;
+        ++cpu.instruction_cycle;
+      } break;
+      case 2: {
+        // Fetch high byte of address
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                     cpu.mem_bus.adh);
+        // Add index register to low byte to, if needed, trigger page crossing
+        auto tmp =
+            static_cast<u16>(cpu.mem_bus.adl) + static_cast<u16>(idx_reg);
+        cpu.mem_bus.adl = U16Low(tmp);
+        cpu.page_crossed = U16High(tmp) != 0;
+        ++cpu.state.pc;
+        ++cpu.instruction_cycle;
+      } break;
+      case 3: {
+        // Read value from effective address (always happens regardless of page
+        // crossing)
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
+                                     cpu.mem_bus.adl, cpu.mem_bus.op_latch);
+        if (cpu.page_crossed) {
+          cpu.mem_bus.adh = static_cast<u8>(cpu.mem_bus.adh + 1);
+          cpu.page_crossed = false;
+        }
+        ++cpu.instruction_cycle;
+      } break;
+      case 4: {
+        // reread value from effective address (now its correct)
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
+                                     cpu.mem_bus.adl, cpu.mem_bus.op_latch);
+        ++cpu.instruction_cycle;
+      } break;
+      case 5: {
+        // dummy write
+        ISA_detail::WriteValueToMem(cpu.mem_bus, cpu.mem_bus.adh,
+                                    cpu.mem_bus.adl, cpu.mem_bus.op_latch);
+        // Execute the operation (INC or DEC)
+        ISA_detail::ExecuteOperation<OP>(cpu, cpu.mem_bus.op_latch,
+                                         cpu.mem_bus.op_latch);
+        ++cpu.instruction_cycle;
+      } break;
+      case 6: {
+        // Final write
+        ISA_detail::WriteValueToMem(cpu.mem_bus, cpu.mem_bus.adh,
+                                    cpu.mem_bus.adl, cpu.mem_bus.op_latch);
+        cpu.instruction_cycle = 0;
+      } break;
+      default:
+        ASSERT(false, "Invalid cycle");
+    }
+  }
+
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationIndirectY(CPU &cpu, u8 &reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch pointer address
@@ -737,8 +907,7 @@ struct ISA_detail {
           ++cpu.instruction_cycle;
         } else {
           // page was not crossed, execute logical operation and set flags
-          ISA_detail::ExecuteLogicalOperation<OP>(reg, cpu.mem_bus.op_latch);
-          ISA_detail::SetZNFlags(cpu, reg);
+          ISA_detail::ExecuteOperation<OP>(cpu, reg, cpu.mem_bus.op_latch);
           cpu.instruction_cycle = 0;
         }
       } break;
@@ -750,8 +919,7 @@ struct ISA_detail {
         // Read value from the effective address into the register
         ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
                                      cpu.mem_bus.adl, cpu.mem_bus.op_latch);
-        ISA_detail::ExecuteLogicalOperation<OP>(reg, cpu.mem_bus.op_latch);
-        ISA_detail::SetZNFlags(cpu, reg);
+        ISA_detail::ExecuteOperation<OP>(cpu, reg, cpu.mem_bus.op_latch);
         cpu.instruction_cycle = 0;
       } break;
       default:
@@ -759,8 +927,8 @@ struct ISA_detail {
     }
   }
 
-  template <LogicalOperation OP>
-  static QNES_FORCE_INLINE void LogicalOperationXIndirect(CPU &cpu, u8 &reg) {
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationXIndirect(CPU &cpu, u8 &reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch low byte of address
@@ -795,8 +963,7 @@ struct ISA_detail {
         // Read value from the effective address into the register
         ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
                                      cpu.mem_bus.adl, cpu.mem_bus.op_latch);
-        ISA_detail::ExecuteLogicalOperation<OP>(reg, cpu.mem_bus.op_latch);
-        ISA_detail::SetZNFlags(cpu, reg);
+        ISA_detail::ExecuteOperation<OP>(cpu, reg, cpu.mem_bus.op_latch);
         cpu.instruction_cycle = 0;
       } break;
       default:
@@ -804,345 +971,12 @@ struct ISA_detail {
     }
   }
 
-  template <ArithmeticOperation OP>
-  static QNES_FORCE_INLINE void ArithmeticOperationImmediate(CPU &cpu,
-                                                             u8 &reg) {
+  template <Operation OP>
+  static QNES_FORCE_INLINE void OperationImplied(CPU &cpu, u8 &reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
-        // Fetch immediate value
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.op_latch);
-        // Execute arithmetic operation
-        u8 stored_reg = reg;
-        ISA_detail::ExecuteArithmeticOperation<OP>(cpu, reg);
-        ISA_detail::SetZNFlags(cpu, reg);
-        u8 value = 0;
-        if constexpr (OP == ArithmeticOperation::SBC) {
-          value = ~cpu.mem_bus.op_latch;
-        } else {
-          value = cpu.mem_bus.op_latch;
-        }
-        ISA_detail::SetArithmeticOverflowFlag(cpu, stored_reg, value, reg);
-        ++cpu.state.pc;
-        cpu.instruction_cycle = 0;
-      } break;
-      default:
-        ASSERT(false, "Invalid cycle");
-    }
-  }
-
-  template <ArithmeticOperation OP>
-  static QNES_FORCE_INLINE void ArithmeticOperationZeroPage(CPU &cpu, u8 &reg) {
-    switch (cpu.instruction_cycle) {
-      case 1: {
-        // Fetch zero page address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
-        ++cpu.state.pc;
-        ++cpu.instruction_cycle;
-      } break;
-      case 2: {
-        // Read value from the effective address into the register
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl,
-                                     cpu.mem_bus.op_latch);
-        // Execute arithmetic operation
-        u8 stored_reg = reg;
-        ISA_detail::ExecuteArithmeticOperation<OP>(cpu, reg);
-        ISA_detail::SetZNFlags(cpu, reg);
-        u8 value = 0;
-        if constexpr (OP == ArithmeticOperation::SBC) {
-          value = ~cpu.mem_bus.op_latch;
-        } else {
-          value = cpu.mem_bus.op_latch;
-        }
-        ISA_detail::SetArithmeticOverflowFlag(cpu, stored_reg, value, reg);
-        cpu.instruction_cycle = 0;
-      } break;
-      default:
-        ASSERT(false, "Invalid cycle");
-    }
-  }
-
-  template <ArithmeticOperation OP>
-  static QNES_FORCE_INLINE void ArithmeticOperationZeroPageIndexed(
-      CPU &cpu, u8 &reg, u8 &idx_reg) {
-    switch (cpu.instruction_cycle) {
-      case 1: {
-        // Fetch zero page address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
-        ++cpu.state.pc;
-        ++cpu.instruction_cycle;
-      } break;
-      case 2: {
-        // Perform dummy read and add indexed register to address (high byte
-        // stays zero)
-        u8 dummy = 0;
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl, dummy);
-        cpu.mem_bus.adl = U16Low((static_cast<u16>(cpu.mem_bus.adl) + idx_reg));
-        ++cpu.instruction_cycle;
-      } break;
-      case 3: {
-        // Read value from the effective address into the register
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.mem_bus.adl,
-                                     cpu.mem_bus.op_latch);
-        // Execute arithmetic operation
-        u8 stored_reg = reg;
-        ISA_detail::ExecuteArithmeticOperation<OP>(cpu, reg);
-        ISA_detail::SetZNFlags(cpu, reg);
-        u8 value = 0;
-        if constexpr (OP == ArithmeticOperation::SBC) {
-          value = ~cpu.mem_bus.op_latch;
-        } else {
-          value = cpu.mem_bus.op_latch;
-        }
-        ISA_detail::SetArithmeticOverflowFlag(cpu, stored_reg, value, reg);
-        cpu.instruction_cycle = 0;
-      } break;
-      default:
-        ASSERT(false, "Invalid cycle");
-    }
-  }
-
-  template <ArithmeticOperation OP>
-  static QNES_FORCE_INLINE void ArithmeticOperationAbsolute(CPU &cpu, u8 &reg) {
-    switch (cpu.instruction_cycle) {
-      case 1: {
-        // Fetch absolute address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
-        ++cpu.state.pc;
-        ++cpu.instruction_cycle;
-      } break;
-      case 2: {
-        // Fetch high byte of address and form full address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adh);
-        ++cpu.state.pc;
-        ++cpu.instruction_cycle;
-      } break;
-      case 3: {
-        // Read value from the effective address into the register
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
-                                     cpu.mem_bus.adl, cpu.mem_bus.op_latch);
-        // Execute arithmetic operation
-        u8 stored_reg = reg;
-        ISA_detail::ExecuteArithmeticOperation<OP>(cpu, reg);
-        ISA_detail::SetZNFlags(cpu, reg);
-        u8 value = 0;
-        if constexpr (OP == ArithmeticOperation::SBC) {
-          value = ~cpu.mem_bus.op_latch;
-        } else {
-          value = cpu.mem_bus.op_latch;
-        }
-        ISA_detail::SetArithmeticOverflowFlag(cpu, stored_reg, value, reg);
-        cpu.instruction_cycle = 0;
-      } break;
-      default:
-        ASSERT(false, "Invalid cycle");
-    }
-  }
-
-  template <ArithmeticOperation OP>
-  static QNES_FORCE_INLINE void ArithmeticOperationAbsoluteIndexed(
-      CPU &cpu, u8 &reg, u8 &idx_reg) {
-    switch (cpu.instruction_cycle) {
-      case 1: {
-        // Fetch absolute address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
-        ++cpu.state.pc;
-        ++cpu.instruction_cycle;
-      } break;
-      case 2: {
-        // Fetch high byte of address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adh);
-        // Add index register to low byte to, if needed, trigger page crossing
-        auto tmp =
-            static_cast<u16>(cpu.mem_bus.adl) + static_cast<u16>(idx_reg);
-        cpu.mem_bus.adl = U16Low(tmp);
-        cpu.page_crossed = U16High(tmp) != 0;
-        ++cpu.state.pc;
-        ++cpu.instruction_cycle;
-      } break;
-      case 3: {
-        // Read value from the effective address into the register, if page was
-        // crossed this is a dummy read
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
-                                     cpu.mem_bus.adl, cpu.mem_bus.op_latch);
-        if (cpu.page_crossed) {
-          // page was crossed, increment high byte and set op_latch to 0
-          cpu.mem_bus.adh = static_cast<u8>(cpu.mem_bus.adh + 1);
-          cpu.mem_bus.op_latch = 0;
-          ++cpu.instruction_cycle;
-        } else {
-          // page was not crossed, execute arithmetic operation
-          u8 stored_reg = reg;
-          ISA_detail::ExecuteArithmeticOperation<OP>(cpu, reg);
-          ISA_detail::SetZNFlags(cpu, reg);
-          u8 value = 0;
-          if constexpr (OP == ArithmeticOperation::SBC) {
-            value = ~cpu.mem_bus.op_latch;
-          } else {
-            value = cpu.mem_bus.op_latch;
-          }
-          ISA_detail::SetArithmeticOverflowFlag(cpu, stored_reg, value, reg);
-          cpu.instruction_cycle = 0;
-        }
-      } break;
-      case 4: {
-        ASSERT(
-            cpu.page_crossed,
-            "Unexpected cycle for Arithmetic Operation Absolute Indexed (page "
-            "was not corossed)");
-        cpu.page_crossed = false;
-        // Read value from the effective address into the register
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
-                                     cpu.mem_bus.adl, cpu.mem_bus.op_latch);
-        u8 stored_reg = reg;
-        ISA_detail::ExecuteArithmeticOperation<OP>(cpu, reg);
-        ISA_detail::SetZNFlags(cpu, reg);
-        u8 value = 0;
-        if constexpr (OP == ArithmeticOperation::SBC) {
-          value = ~cpu.mem_bus.op_latch;
-        } else {
-          value = cpu.mem_bus.op_latch;
-        }
-        ISA_detail::SetArithmeticOverflowFlag(cpu, stored_reg, value, reg);
-        cpu.instruction_cycle = 0;
-      } break;
-      default:
-        ASSERT(false, "Invalid cycle");
-    }
-  }
-
-  template <ArithmeticOperation OP>
-  static QNES_FORCE_INLINE void ArithmeticOperationXIndirect(CPU &cpu,
-                                                             u8 &reg) {
-    switch (cpu.instruction_cycle) {
-      case 1: {
-        // Fetch low byte of address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.op_latch);
-        ++cpu.state.pc;
-        ++cpu.instruction_cycle;
-      } break;
-      case 2: {
-        // Perform dummy read and add X to pointer (zero page wraparound)
-        u8 dummy = 0;
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.mem_bus.op_latch,
-                                     dummy);
-        cpu.mem_bus.op_latch =
-            U16Low(static_cast<u16>(cpu.mem_bus.op_latch) + cpu.state.x);
-        ++cpu.instruction_cycle;
-      } break;
-      case 3: {
-        // Read low byte of effective address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.mem_bus.op_latch,
-                                     cpu.mem_bus.adl);
-        ++cpu.instruction_cycle;
-      } break;
-      case 4: {
-        // Read high byte of effective address
-        const u8 high_byte = U16Low(static_cast<u16>(cpu.mem_bus.op_latch) + 1);
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, high_byte,
-                                     cpu.mem_bus.adh);
-        ++cpu.instruction_cycle;
-      } break;
-      case 5: {
-        // Read value from the effective address into the register
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
-                                     cpu.mem_bus.adl, cpu.mem_bus.op_latch);
-        u8 stored_reg = reg;
-        ISA_detail::ExecuteArithmeticOperation<OP>(cpu, reg);
-        ISA_detail::SetZNFlags(cpu, reg);
-        u8 value = 0;
-        if constexpr (OP == ArithmeticOperation::SBC) {
-          value = ~cpu.mem_bus.op_latch;
-        } else {
-          value = cpu.mem_bus.op_latch;
-        }
-        ISA_detail::SetArithmeticOverflowFlag(cpu, stored_reg, value, reg);
-        cpu.instruction_cycle = 0;
-      } break;
-      default:
-        ASSERT(false, "Invalid cycle");
-    }
-  }
-
-  template <ArithmeticOperation OP>
-  static QNES_FORCE_INLINE void ArithmeticOperationIndirectY(CPU &cpu,
-                                                             u8 &reg) {
-    switch (cpu.instruction_cycle) {
-      case 1: {
-        // Fetch pointer address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.op_latch);
-        ++cpu.state.pc;
-        ++cpu.instruction_cycle;
-      } break;
-      case 2: {
-        // Fetch low byte of address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.mem_bus.op_latch,
-                                     cpu.mem_bus.adl);
-        ++cpu.instruction_cycle;
-      } break;
-      case 3: {
-        // Fetch high byte of address
-        const u8 high_byte = U16Low(static_cast<u16>(cpu.mem_bus.op_latch) + 1);
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, high_byte,
-                                     cpu.mem_bus.adh);
-        // Add Y to low byte to, if needed, trigger page crossing
-        u16 tmp =
-            static_cast<u16>(cpu.mem_bus.adl) + static_cast<u16>(cpu.state.y);
-        cpu.mem_bus.adl = U16Low(tmp);
-        cpu.page_crossed = U16High(tmp) != 0;
-        ++cpu.instruction_cycle;
-      } break;
-      case 4: {
-        // Read value from the effective address into the register, if page was
-        // crossed this is a dummy read
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
-                                     cpu.mem_bus.adl, cpu.mem_bus.op_latch);
-        if (cpu.page_crossed) {
-          // page was crossed, increment high byte and set op_latch to 0
-          cpu.mem_bus.adh = static_cast<u8>(cpu.mem_bus.adh + 1);
-          cpu.mem_bus.op_latch = 0;
-          ++cpu.instruction_cycle;
-        } else {
-          // page was not crossed, execute arithmetic operation and set flags
-          u8 stored_reg = reg;
-          ISA_detail::ExecuteArithmeticOperation<OP>(cpu, reg);
-          ISA_detail::SetZNFlags(cpu, reg);
-          u8 value = 0;
-          if constexpr (OP == ArithmeticOperation::SBC) {
-            value = ~cpu.mem_bus.op_latch;
-          } else {
-            value = cpu.mem_bus.op_latch;
-          }
-          ISA_detail::SetArithmeticOverflowFlag(cpu, stored_reg, value, reg);
-          cpu.instruction_cycle = 0;
-        }
-      } break;
-      case 5: {
-        ASSERT(cpu.page_crossed,
-               "Unexpected cycle for Arithmetic Operation Indirect Y (page was "
-               "not corossed)");
-        cpu.page_crossed = false;
-        // Read value from the effective address into the register
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
-                                     cpu.mem_bus.adl, cpu.mem_bus.op_latch);
-        u8 stored_reg = reg;
-        ISA_detail::ExecuteArithmeticOperation<OP>(cpu, reg);
-        ISA_detail::SetZNFlags(cpu, reg);
-        u8 value = 0;
-        if constexpr (OP == ArithmeticOperation::SBC) {
-          value = ~cpu.mem_bus.op_latch;
-        } else {
-          value = cpu.mem_bus.op_latch;
-        }
-        ISA_detail::SetArithmeticOverflowFlag(cpu, stored_reg, value, reg);
+        u8 void_operand = 0;
+        ISA_detail::ExecuteOperation<OP>(cpu, reg, void_operand);
         cpu.instruction_cycle = 0;
       } break;
       default:
@@ -1382,212 +1216,301 @@ void ISA::TYA<AddressingMode::Implied>::Execute(CPU &cpu) {
 }
 
 void ISA::AND<AddressingMode::Immediate>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationImmediate<ISA_detail::LogicalOperation::AND>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationImmediate<ISA_detail::Operation::AND>(cpu, cpu.state.a);
 }
 
 void ISA::AND<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationZeroPage<ISA_detail::LogicalOperation::AND>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationZeroPage<ISA_detail::Operation::AND>(cpu, cpu.state.a);
 }
 
 void ISA::AND<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationZeroPageIndexed<
-      ISA_detail::LogicalOperation::AND>(cpu, cpu.state.a, cpu.state.x);
+  ISA_detail::OperationZeroPageIndexed<ISA_detail::Operation::AND>(
+      cpu, cpu.state.a, cpu.state.x);
 }
 
 void ISA::AND<AddressingMode::Absolute>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationAbsolute<ISA_detail::LogicalOperation::AND>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationAbsolute<ISA_detail::Operation::AND>(cpu, cpu.state.a);
 }
 
 void ISA::AND<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationAbsoluteIndexed<
-      ISA_detail::LogicalOperation::AND>(cpu, cpu.state.a, cpu.state.x);
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::AND>(
+      cpu, cpu.state.a, cpu.state.x);
 }
 
 void ISA::AND<AddressingMode::AbsoluteY>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationAbsoluteIndexed<
-      ISA_detail::LogicalOperation::AND>(cpu, cpu.state.a, cpu.state.y);
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::AND>(
+      cpu, cpu.state.a, cpu.state.y);
 }
 
 void ISA::AND<AddressingMode::XIndirect>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationXIndirect<ISA_detail::LogicalOperation::AND>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationXIndirect<ISA_detail::Operation::AND>(cpu, cpu.state.a);
 }
 
 void ISA::AND<AddressingMode::IndirectY>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationIndirectY<ISA_detail::LogicalOperation::AND>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationIndirectY<ISA_detail::Operation::AND>(cpu, cpu.state.a);
 }
 
 void ISA::EOR<AddressingMode::Immediate>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationImmediate<ISA_detail::LogicalOperation::EOR>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationImmediate<ISA_detail::Operation::EOR>(cpu, cpu.state.a);
 }
 
 void ISA::EOR<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationZeroPage<ISA_detail::LogicalOperation::EOR>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationZeroPage<ISA_detail::Operation::EOR>(cpu, cpu.state.a);
 }
 
 void ISA::EOR<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationZeroPageIndexed<
-      ISA_detail::LogicalOperation::EOR>(cpu, cpu.state.a, cpu.state.x);
+  ISA_detail::OperationZeroPageIndexed<ISA_detail::Operation::EOR>(
+      cpu, cpu.state.a, cpu.state.x);
 }
 
 void ISA::EOR<AddressingMode::Absolute>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationAbsolute<ISA_detail::LogicalOperation::EOR>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationAbsolute<ISA_detail::Operation::EOR>(cpu, cpu.state.a);
 }
 
 void ISA::EOR<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationAbsoluteIndexed<
-      ISA_detail::LogicalOperation::EOR>(cpu, cpu.state.a, cpu.state.x);
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::EOR>(
+      cpu, cpu.state.a, cpu.state.x);
 }
 
 void ISA::EOR<AddressingMode::AbsoluteY>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationAbsoluteIndexed<
-      ISA_detail::LogicalOperation::EOR>(cpu, cpu.state.a, cpu.state.y);
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::EOR>(
+      cpu, cpu.state.a, cpu.state.y);
 }
 
 void ISA::EOR<AddressingMode::XIndirect>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationXIndirect<ISA_detail::LogicalOperation::EOR>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationXIndirect<ISA_detail::Operation::EOR>(cpu, cpu.state.a);
 }
 
 void ISA::EOR<AddressingMode::IndirectY>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationIndirectY<ISA_detail::LogicalOperation::EOR>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationIndirectY<ISA_detail::Operation::EOR>(cpu, cpu.state.a);
 }
 
 void ISA::ORA<AddressingMode::Immediate>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationImmediate<ISA_detail::LogicalOperation::ORA>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationImmediate<ISA_detail::Operation::ORA>(cpu, cpu.state.a);
 }
 
 void ISA::ORA<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationZeroPage<ISA_detail::LogicalOperation::ORA>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationZeroPage<ISA_detail::Operation::ORA>(cpu, cpu.state.a);
 }
 
 void ISA::ORA<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationZeroPageIndexed<
-      ISA_detail::LogicalOperation::ORA>(cpu, cpu.state.a, cpu.state.x);
+  ISA_detail::OperationZeroPageIndexed<ISA_detail::Operation::ORA>(
+      cpu, cpu.state.a, cpu.state.x);
 }
 
 void ISA::ORA<AddressingMode::Absolute>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationAbsolute<ISA_detail::LogicalOperation::ORA>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationAbsolute<ISA_detail::Operation::ORA>(cpu, cpu.state.a);
 }
 
 void ISA::ORA<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationAbsoluteIndexed<
-      ISA_detail::LogicalOperation::ORA>(cpu, cpu.state.a, cpu.state.x);
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::ORA>(
+      cpu, cpu.state.a, cpu.state.x);
 }
 
 void ISA::ORA<AddressingMode::AbsoluteY>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationAbsoluteIndexed<
-      ISA_detail::LogicalOperation::ORA>(cpu, cpu.state.a, cpu.state.y);
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::ORA>(
+      cpu, cpu.state.a, cpu.state.y);
 }
 
 void ISA::ORA<AddressingMode::XIndirect>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationXIndirect<ISA_detail::LogicalOperation::ORA>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationXIndirect<ISA_detail::Operation::ORA>(cpu, cpu.state.a);
 }
 
 void ISA::ORA<AddressingMode::IndirectY>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationIndirectY<ISA_detail::LogicalOperation::ORA>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationIndirectY<ISA_detail::Operation::ORA>(cpu, cpu.state.a);
 }
 
 void ISA::BIT<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationZeroPage<ISA_detail::LogicalOperation::BIT>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationZeroPage<ISA_detail::Operation::BIT>(cpu, cpu.state.a);
 }
 
 void ISA::BIT<AddressingMode::Absolute>::Execute(CPU &cpu) {
-  ISA_detail::LogicalOperationAbsolute<ISA_detail::LogicalOperation::BIT>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationAbsolute<ISA_detail::Operation::BIT>(cpu, cpu.state.a);
 }
 
 void ISA::ADC<AddressingMode::Immediate>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationImmediate<
-      ISA_detail::ArithmeticOperation::ADC>(cpu, cpu.state.a);
+  ISA_detail::OperationImmediate<ISA_detail::Operation::ADC>(cpu, cpu.state.a);
 }
 
 void ISA::ADC<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationZeroPage<ISA_detail::ArithmeticOperation::ADC>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationZeroPage<ISA_detail::Operation::ADC>(cpu, cpu.state.a);
 }
 
 void ISA::ADC<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationZeroPageIndexed<
-      ISA_detail::ArithmeticOperation::ADC>(cpu, cpu.state.a, cpu.state.x);
+  ISA_detail::OperationZeroPageIndexed<ISA_detail::Operation::ADC>(
+      cpu, cpu.state.a, cpu.state.x);
 }
 
 void ISA::ADC<AddressingMode::Absolute>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationAbsolute<ISA_detail::ArithmeticOperation::ADC>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationAbsolute<ISA_detail::Operation::ADC>(cpu, cpu.state.a);
 }
 
 void ISA::ADC<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationAbsoluteIndexed<
-      ISA_detail::ArithmeticOperation::ADC>(cpu, cpu.state.a, cpu.state.x);
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::ADC>(
+      cpu, cpu.state.a, cpu.state.x);
 }
 
 void ISA::ADC<AddressingMode::AbsoluteY>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationAbsoluteIndexed<
-      ISA_detail::ArithmeticOperation::ADC>(cpu, cpu.state.a, cpu.state.y);
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::ADC>(
+      cpu, cpu.state.a, cpu.state.y);
 }
 
 void ISA::ADC<AddressingMode::XIndirect>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationXIndirect<
-      ISA_detail::ArithmeticOperation::ADC>(cpu, cpu.state.a);
+  ISA_detail::OperationXIndirect<ISA_detail::Operation::ADC>(cpu, cpu.state.a);
 }
 
 void ISA::ADC<AddressingMode::IndirectY>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationIndirectY<
-      ISA_detail::ArithmeticOperation::ADC>(cpu, cpu.state.a);
+  ISA_detail::OperationIndirectY<ISA_detail::Operation::ADC>(cpu, cpu.state.a);
 }
 
 void ISA::SBC<AddressingMode::Immediate>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationImmediate<
-      ISA_detail::ArithmeticOperation::SBC>(cpu, cpu.state.a);
+  ISA_detail::OperationImmediate<ISA_detail::Operation::SBC>(cpu, cpu.state.a);
 }
 
 void ISA::SBC<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationZeroPage<ISA_detail::ArithmeticOperation::SBC>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationZeroPage<ISA_detail::Operation::SBC>(cpu, cpu.state.a);
 }
 
 void ISA::SBC<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationZeroPageIndexed<
-      ISA_detail::ArithmeticOperation::SBC>(cpu, cpu.state.a, cpu.state.x);
+  ISA_detail::OperationZeroPageIndexed<ISA_detail::Operation::SBC>(
+      cpu, cpu.state.a, cpu.state.x);
 }
 
 void ISA::SBC<AddressingMode::Absolute>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationAbsolute<ISA_detail::ArithmeticOperation::SBC>(
-      cpu, cpu.state.a);
+  ISA_detail::OperationAbsolute<ISA_detail::Operation::SBC>(cpu, cpu.state.a);
 }
 
 void ISA::SBC<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationAbsoluteIndexed<
-      ISA_detail::ArithmeticOperation::SBC>(cpu, cpu.state.a, cpu.state.x);
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::SBC>(
+      cpu, cpu.state.a, cpu.state.x);
 }
 
 void ISA::SBC<AddressingMode::AbsoluteY>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationAbsoluteIndexed<
-      ISA_detail::ArithmeticOperation::SBC>(cpu, cpu.state.a, cpu.state.y);
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::SBC>(
+      cpu, cpu.state.a, cpu.state.y);
 }
 
 void ISA::SBC<AddressingMode::XIndirect>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationXIndirect<
-      ISA_detail::ArithmeticOperation::SBC>(cpu, cpu.state.a);
+  ISA_detail::OperationXIndirect<ISA_detail::Operation::SBC>(cpu, cpu.state.a);
 }
 
 void ISA::SBC<AddressingMode::IndirectY>::Execute(CPU &cpu) {
-  ISA_detail::ArithmeticOperationIndirectY<
-      ISA_detail::ArithmeticOperation::SBC>(cpu, cpu.state.a);
+  ISA_detail::OperationIndirectY<ISA_detail::Operation::SBC>(cpu, cpu.state.a);
 }
+
+void ISA::CMP<AddressingMode::Immediate>::Execute(CPU &cpu) {
+  ISA_detail::OperationImmediate<ISA_detail::Operation::CMP>(cpu, cpu.state.a);
+}
+
+void ISA::CMP<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPage<ISA_detail::Operation::CMP>(cpu, cpu.state.a);
+}
+
+void ISA::CMP<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPageIndexed<ISA_detail::Operation::CMP>(
+      cpu, cpu.state.a, cpu.state.x);
+}
+
+void ISA::CMP<AddressingMode::Absolute>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsolute<ISA_detail::Operation::CMP>(cpu, cpu.state.a);
+}
+
+void ISA::CMP<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::CMP>(
+      cpu, cpu.state.a, cpu.state.x);
+}
+
+void ISA::CMP<AddressingMode::AbsoluteY>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsoluteIndexed<ISA_detail::Operation::CMP>(
+      cpu, cpu.state.a, cpu.state.y);
+}
+
+void ISA::CMP<AddressingMode::XIndirect>::Execute(CPU &cpu) {
+  ISA_detail::OperationXIndirect<ISA_detail::Operation::CMP>(cpu, cpu.state.a);
+}
+
+void ISA::CMP<AddressingMode::IndirectY>::Execute(CPU &cpu) {
+  ISA_detail::OperationIndirectY<ISA_detail::Operation::CMP>(cpu, cpu.state.a);
+}
+
+void ISA::CPX<AddressingMode::Immediate>::Execute(CPU &cpu) {
+  ISA_detail::OperationImmediate<ISA_detail::Operation::CMP>(cpu, cpu.state.x);
+}
+
+void ISA::CPX<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPage<ISA_detail::Operation::CMP>(cpu, cpu.state.x);
+}
+
+void ISA::CPX<AddressingMode::Absolute>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsolute<ISA_detail::Operation::CMP>(cpu, cpu.state.x);
+}
+
+void ISA::CPY<AddressingMode::Immediate>::Execute(CPU &cpu) {
+  ISA_detail::OperationImmediate<ISA_detail::Operation::CMP>(cpu, cpu.state.y);
+}
+
+void ISA::CPY<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPage<ISA_detail::Operation::CMP>(cpu, cpu.state.y);
+}
+
+void ISA::CPY<AddressingMode::Absolute>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsolute<ISA_detail::Operation::CMP>(cpu, cpu.state.y);
+}
+
+void ISA::INC<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPage_ReadModifyWrite<ISA_detail::Operation::INC>(
+      cpu);
+}
+
+void ISA::INC<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPageIndexed_ReadModifyWrite<
+      ISA_detail::Operation::INC>(cpu, cpu.state.x);
+}
+
+void ISA::INC<AddressingMode::Absolute>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsolute_ReadModifyWrite<ISA_detail::Operation::INC>(
+      cpu);
+}
+
+void ISA::INC<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsoluteIndexed_ReadModifyWrite<
+      ISA_detail::Operation::INC>(cpu, cpu.state.x);
+}
+
+void ISA::INX<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ISA_detail::OperationImplied<ISA_detail::Operation::INC>(cpu, cpu.state.x);
+}
+
+void ISA::INY<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ISA_detail::OperationImplied<ISA_detail::Operation::INC>(cpu, cpu.state.y);
+}
+
+void ISA::DEC<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPage_ReadModifyWrite<ISA_detail::Operation::DEC>(
+      cpu);
+}
+
+void ISA::DEC<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPageIndexed_ReadModifyWrite<
+      ISA_detail::Operation::DEC>(cpu, cpu.state.x);
+}
+
+void ISA::DEC<AddressingMode::Absolute>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsolute_ReadModifyWrite<ISA_detail::Operation::DEC>(
+      cpu);
+}
+
+void ISA::DEC<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsoluteIndexed_ReadModifyWrite<
+      ISA_detail::Operation::DEC>(cpu, cpu.state.x);
+}
+
+void ISA::DEX<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ISA_detail::OperationImplied<ISA_detail::Operation::DEC>(cpu, cpu.state.x);
+}
+
+void ISA::DEY<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ISA_detail::OperationImplied<ISA_detail::Operation::DEC>(cpu, cpu.state.y);
+}
+
 }  // namespace QNes

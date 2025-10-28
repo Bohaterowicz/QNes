@@ -14,6 +14,7 @@ add_executable(
   qnes_test.cpp
   cpu_tests/isa_absolute.cpp
   cpu_tests/isa_immediate.cpp
+  cpu_tests/isa_implied.cpp
   cpu_tests/isa_zeropage.cpp
   cpu_tests/isa_zeropage_indexed.cpp
   cpu_tests/isa_absolute_indexed.cpp
