@@ -8,22 +8,6 @@ namespace QNes {
 
 struct ISA_detail;
 
-enum class AddressingMode : u8 {
-  Implied,
-  Immediate,
-  ZeroPage,
-  ZeroPageX,
-  ZeroPageY,
-  Absolute,
-  AbsoluteX,
-  AbsoluteY,
-  Indirect,
-  XIndirect,
-  IndirectY,
-  Accumulator,
-  Relative
-};
-
 class MemBus {
  public:
   MemBus(Memory &memory) : memory(memory) {};
@@ -134,6 +118,10 @@ struct CPU_Testing {
 
   static void PushStack(CPU &cpu, u8 value) { cpu.PushStack(value); }
   static u8 PopStack(CPU &cpu) { return cpu.PopStack(); }
+  static u8 ReadStackValue(CPU &cpu, u8 sp) {
+    cpu.mem_bus.SetAddress(0x01, sp);
+    return cpu.mem_bus.Read();
+  }
 };
 
 }  // namespace QNes

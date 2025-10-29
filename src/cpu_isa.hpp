@@ -7,6 +7,22 @@
 
 namespace QNes {
 
+enum class AddressingMode : u8 {
+  Implied,
+  Immediate,
+  ZeroPage,
+  ZeroPageX,
+  ZeroPageY,
+  Absolute,
+  AbsoluteX,
+  AbsoluteY,
+  Indirect,
+  XIndirect,
+  IndirectY,
+  Accumulator,
+  Relative
+};
+
 struct ISA {
   using InstructionFunc = void (*)(CPU &);
 
@@ -223,6 +239,55 @@ struct ISA {
   template <AddressingMode MODE>
   struct DEY {
     static void Execute(CPU &cpu) { ASSERT(false, "Invalid DEY Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct ASL {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid ASL Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct LSR {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid LSR Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct ROL {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid ROL Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct ROR {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid ROR Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct JMP {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid JMP Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct JSR {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid JSR Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct RTS {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid RTS Instruction"); }
     static constexpr u8 OPCODE = 0xFF;
     static constexpr u8 CYCLES = 0;
   };
@@ -991,6 +1056,174 @@ struct ISA::DEY<AddressingMode::Implied> {
   static constexpr u8 CYCLES = 2;
 };
 
+template <>
+struct ISA::ASL<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x0A;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::ASL<AddressingMode::ZeroPage> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x06;
+  static constexpr u8 CYCLES = 5;
+};
+
+template <>
+struct ISA::ASL<AddressingMode::ZeroPageX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x16;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::ASL<AddressingMode::Absolute> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x0E;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::ASL<AddressingMode::AbsoluteX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x1E;
+  static constexpr u8 CYCLES = 7;
+};
+
+template <>
+struct ISA::LSR<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x4A;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::LSR<AddressingMode::ZeroPage> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x46;
+  static constexpr u8 CYCLES = 5;
+};
+
+template <>
+struct ISA::LSR<AddressingMode::ZeroPageX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x56;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::LSR<AddressingMode::Absolute> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x4E;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::LSR<AddressingMode::AbsoluteX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x5E;
+  static constexpr u8 CYCLES = 7;
+};
+
+template <>
+struct ISA::ROL<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x2A;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::ROL<AddressingMode::ZeroPage> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x26;
+  static constexpr u8 CYCLES = 5;
+};
+
+template <>
+struct ISA::ROL<AddressingMode::ZeroPageX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x36;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::ROL<AddressingMode::Absolute> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x2E;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::ROL<AddressingMode::AbsoluteX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x3E;
+  static constexpr u8 CYCLES = 7;
+};
+
+template <>
+struct ISA::ROR<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x6A;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::ROR<AddressingMode::ZeroPage> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x66;
+  static constexpr u8 CYCLES = 5;
+};
+
+template <>
+struct ISA::ROR<AddressingMode::ZeroPageX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x76;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::ROR<AddressingMode::Absolute> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x6E;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::ROR<AddressingMode::AbsoluteX> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x7E;
+  static constexpr u8 CYCLES = 7;
+};
+
+template <>
+struct ISA::JMP<AddressingMode::Absolute> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x4C;
+  static constexpr u8 CYCLES = 3;
+};
+
+template <>
+struct ISA::JMP<AddressingMode::Indirect> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x6C;
+  static constexpr u8 CYCLES = 5;
+};
+
+template <>
+struct ISA::JSR<AddressingMode::Absolute> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x20;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::RTS<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x60;
+  static constexpr u8 CYCLES = 6;
+};
+
 inline constexpr auto Instructions = [] constexpr {
   std::array<ISA::InstructionFunc, 256> table{};
   table.fill(nullptr);
@@ -1268,6 +1501,68 @@ inline constexpr auto Instructions = [] constexpr {
   // DEY - Decrement Y Register
   table[ISA::DEY<AddressingMode::Implied>::OPCODE] =
       ISA::DEY<AddressingMode::Implied>::Execute;
+
+  // ASL - Arithmetic Shift Left
+  table[ISA::ASL<AddressingMode::Implied>::OPCODE] =  // implied = accumulator
+      ISA::ASL<AddressingMode::Implied>::Execute;
+  table[ISA::ASL<AddressingMode::ZeroPage>::OPCODE] =
+      ISA::ASL<AddressingMode::ZeroPage>::Execute;
+  table[ISA::ASL<AddressingMode::ZeroPageX>::OPCODE] =
+      ISA::ASL<AddressingMode::ZeroPageX>::Execute;
+  table[ISA::ASL<AddressingMode::Absolute>::OPCODE] =
+      ISA::ASL<AddressingMode::Absolute>::Execute;
+  table[ISA::ASL<AddressingMode::AbsoluteX>::OPCODE] =
+      ISA::ASL<AddressingMode::AbsoluteX>::Execute;
+
+  // LSR - Logical Shift Right
+  table[ISA::LSR<AddressingMode::Implied>::OPCODE] =  // implied = accumulator
+      ISA::LSR<AddressingMode::Implied>::Execute;
+  table[ISA::LSR<AddressingMode::ZeroPage>::OPCODE] =
+      ISA::LSR<AddressingMode::ZeroPage>::Execute;
+  table[ISA::LSR<AddressingMode::ZeroPageX>::OPCODE] =
+      ISA::LSR<AddressingMode::ZeroPageX>::Execute;
+  table[ISA::LSR<AddressingMode::Absolute>::OPCODE] =
+      ISA::LSR<AddressingMode::Absolute>::Execute;
+  table[ISA::LSR<AddressingMode::AbsoluteX>::OPCODE] =
+      ISA::LSR<AddressingMode::AbsoluteX>::Execute;
+
+  // ROL - Rotate Left
+  table[ISA::ROL<AddressingMode::Implied>::OPCODE] =  // implied = accumulator
+      ISA::ROL<AddressingMode::Implied>::Execute;
+  table[ISA::ROL<AddressingMode::ZeroPage>::OPCODE] =
+      ISA::ROL<AddressingMode::ZeroPage>::Execute;
+  table[ISA::ROL<AddressingMode::ZeroPageX>::OPCODE] =
+      ISA::ROL<AddressingMode::ZeroPageX>::Execute;
+  table[ISA::ROL<AddressingMode::Absolute>::OPCODE] =
+      ISA::ROL<AddressingMode::Absolute>::Execute;
+  table[ISA::ROL<AddressingMode::AbsoluteX>::OPCODE] =
+      ISA::ROL<AddressingMode::AbsoluteX>::Execute;
+
+  // ROR - Rotate Right
+  table[ISA::ROR<AddressingMode::Implied>::OPCODE] =  // implied = accumulator
+      ISA::ROR<AddressingMode::Implied>::Execute;
+  table[ISA::ROR<AddressingMode::ZeroPage>::OPCODE] =
+      ISA::ROR<AddressingMode::ZeroPage>::Execute;
+  table[ISA::ROR<AddressingMode::ZeroPageX>::OPCODE] =
+      ISA::ROR<AddressingMode::ZeroPageX>::Execute;
+  table[ISA::ROR<AddressingMode::Absolute>::OPCODE] =
+      ISA::ROR<AddressingMode::Absolute>::Execute;
+  table[ISA::ROR<AddressingMode::AbsoluteX>::OPCODE] =
+      ISA::ROR<AddressingMode::AbsoluteX>::Execute;
+
+  // JMP - Jump to Subroutine
+  table[ISA::JMP<AddressingMode::Absolute>::OPCODE] =
+      ISA::JMP<AddressingMode::Absolute>::Execute;
+  table[ISA::JMP<AddressingMode::Indirect>::OPCODE] =
+      ISA::JMP<AddressingMode::Indirect>::Execute;
+
+  // JSR - Jump to Subroutine
+  table[ISA::JSR<AddressingMode::Absolute>::OPCODE] =
+      ISA::JSR<AddressingMode::Absolute>::Execute;
+
+  // RTS - Return from Subroutine
+  table[ISA::RTS<AddressingMode::Implied>::OPCODE] =
+      ISA::RTS<AddressingMode::Implied>::Execute;
 
   return table;
 }();

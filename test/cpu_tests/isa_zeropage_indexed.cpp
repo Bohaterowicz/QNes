@@ -1304,7 +1304,239 @@ TEST_P(IncrementDecrementZeroPageIndexedTest, DecrementDEC_X) {
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
 }
 
+TEST_P(IncrementDecrementZeroPageIndexedTest, ShiftLeft_ASL_ZeroPageX) {
+  // Arrange
+  const u8 start_value = initial_value;
+  const u8 expected_result = static_cast<u8>((start_value << 1) & 0xFF);
+  const bool expected_carry = (start_value & 0x80) != 0;
+  const u16 zeropage_address = 0xDE;
+  const u8 x_offset = 0x05;
+  const u16 effective_address = zeropage_address + x_offset;
+
+  QNes::CPU_Testing::SetX(cpu, x_offset);
+  memory.Write(effective_address, start_value);
+
+  // Simulate the instruction fetch cycle for ASL ZeroPageX
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::ASL<QNes::AddressingMode::ZeroPageX>::OPCODE);
+  memory.Write(start_address + 1, zeropage_address);
+
+  // Act
+  // Simulate the CPU cycles for ASL ZeroPageX (6 cycles)
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(effective_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 2);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
 INSTANTIATE_TEST_SUITE_P(IncrementDecrementOperations_ZeroPageIndexed,
                          IncrementDecrementZeroPageIndexedTest,
                          ::testing::Values(0, 1, 2, 0x42, 0x7F, 0x80, 254, 255,
                                            0xFF));
+
+TEST_P(IncrementDecrementZeroPageIndexedTest, ShiftRight_LSR_ZeroPageX) {
+  // Arrange
+  const u8 start_value = initial_value;
+  const u8 expected_result = static_cast<u8>((start_value >> 1) & 0xFF);
+  const bool expected_carry = (start_value & 0x01) != 0;
+  const u16 zeropage_address = 0xDE;
+  const u8 x_offset = 0x05;
+  const u16 effective_address = zeropage_address + x_offset;
+
+  QNes::CPU_Testing::SetX(cpu, x_offset);
+  memory.Write(effective_address, start_value);
+
+  // Simulate the instruction fetch cycle for LSR ZeroPageX
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::LSR<QNes::AddressingMode::ZeroPageX>::OPCODE);
+  memory.Write(start_address + 1, zeropage_address);
+
+  // Act
+  // Simulate the CPU cycles for LSR ZeroPageX (6 cycles)
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(effective_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 2);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_P(IncrementDecrementZeroPageIndexedTest,
+       RotateLeft_ROL_ZeroPageX_NoCarry) {
+  // Arrange
+  const u8 start_value = initial_value;
+  QNes::CPU_Testing::SetCarry(cpu, false);
+  const u8 expected_result = static_cast<u8>(((start_value << 1) | 0) & 0xFF);
+  const bool expected_carry = (start_value & 0x80) != 0;
+  const u16 zeropage_address = 0xDE;
+  const u8 x_offset = 0x05;
+  const u16 effective_address = zeropage_address + x_offset;
+
+  QNes::CPU_Testing::SetX(cpu, x_offset);
+  memory.Write(effective_address, start_value);
+
+  // Simulate the instruction fetch cycle for ROL ZeroPageX
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::ROL<QNes::AddressingMode::ZeroPageX>::OPCODE);
+  memory.Write(start_address + 1, zeropage_address);
+
+  // Act
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(effective_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 2);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_P(IncrementDecrementZeroPageIndexedTest, RotateLeft_ROL_ZeroPageX_Carry) {
+  // Arrange
+  const u8 start_value = initial_value;
+  QNes::CPU_Testing::SetCarry(cpu, true);
+  const u8 expected_result = static_cast<u8>(((start_value << 1) | 1) & 0xFF);
+  const bool expected_carry = (start_value & 0x80) != 0;
+  const u16 zeropage_address = 0xDE;
+  const u8 x_offset = 0x05;
+  const u16 effective_address = zeropage_address + x_offset;
+
+  QNes::CPU_Testing::SetX(cpu, x_offset);
+  memory.Write(effective_address, start_value);
+
+  // Simulate the instruction fetch cycle for ROL ZeroPageX
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::ROL<QNes::AddressingMode::ZeroPageX>::OPCODE);
+  memory.Write(start_address + 1, zeropage_address);
+
+  // Act
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(effective_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 2);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_P(IncrementDecrementZeroPageIndexedTest,
+       RotateRight_ROR_ZeroPageX_NoCarry) {
+  // Arrange
+  const u8 start_value = initial_value;
+  QNes::CPU_Testing::SetCarry(cpu, false);
+  const u8 expected_result =
+      static_cast<u8>(((start_value >> 1) | 0x00) & 0xFF);
+  const bool expected_carry = (start_value & 0x01) != 0;
+  const u16 zeropage_address = 0xDE;
+  const u8 x_offset = 0x05;
+  const u16 effective_address = zeropage_address + x_offset;
+
+  QNes::CPU_Testing::SetX(cpu, x_offset);
+  memory.Write(effective_address, start_value);
+
+  // Simulate the instruction fetch cycle for ROR ZeroPageX
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::ROR<QNes::AddressingMode::ZeroPageX>::OPCODE);
+  memory.Write(start_address + 1, zeropage_address);
+
+  // Act
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(effective_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 2);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_P(IncrementDecrementZeroPageIndexedTest, RotateRight_ROR_ZeroPageX_Carry) {
+  // Arrange
+  const u8 start_value = initial_value;
+  QNes::CPU_Testing::SetCarry(cpu, true);
+  const u8 expected_result =
+      static_cast<u8>(((start_value >> 1) | 0x80) & 0xFF);
+  const bool expected_carry = (start_value & 0x01) != 0;
+  const u16 zeropage_address = 0xDE;
+  const u8 x_offset = 0x05;
+  const u16 effective_address = zeropage_address + x_offset;
+
+  QNes::CPU_Testing::SetX(cpu, x_offset);
+  memory.Write(effective_address, start_value);
+
+  // Simulate the instruction fetch cycle for ROR ZeroPageX
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::ROR<QNes::AddressingMode::ZeroPageX>::OPCODE);
+  memory.Write(start_address + 1, zeropage_address);
+
+  // Act
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(effective_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 2);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}

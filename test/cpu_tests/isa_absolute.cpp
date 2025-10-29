@@ -116,6 +116,23 @@ class IncrementDecrementAbsoluteTest : public ::testing::TestWithParam<int> {
   int initial_value = 0;
 };
 
+class AbsoluteBasicTest : public ::testing::Test {
+ public:
+  AbsoluteBasicTest() : memory(Kilobytes(64)), cpu(memory) {}
+
+ protected:
+  void SetUp() override {
+    memory.Clear();
+    QNes::CPU_Testing::SetPC(cpu, 0);
+    QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  }
+
+  void TearDown() override {}
+
+  QNes::Memory memory;
+  QNes::CPU cpu;
+};
+
 TEST_P(AbsoluteAddressingTest, LoadsCorrectValueA) {
   // Arrange
   const u16 test_address = 0x1234;
@@ -350,6 +367,128 @@ INSTANTIATE_TEST_SUITE_P(LoadFromMemory_Absolute,  // Instance name
                                            -2, -10, -254,
                                            -255)  // The test data
 );
+
+TEST_F(AbsoluteBasicTest, JMPAbsolute) {
+  // Arrange
+  constexpr u16 start_address = 0x0000;
+  constexpr u16 target_address = 0xBEEF;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::JMP<QNes::AddressingMode::Absolute>::OPCODE);
+  memory.Write(start_address + 1, QNes::U16Low(target_address));
+  memory.Write(start_address + 2, QNes::U16High(target_address));
+
+  // Act
+  // Simulate the CPU cycles for JMP Absolute (3 cycles)
+  for (int cycle = 0; cycle < 3; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+
+  // Assert
+  EXPECT_EQ(cpu_state.pc, target_address);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_F(AbsoluteBasicTest, JSRAbsolute) {
+  // Arrange
+  constexpr u16 start_address = 0x0000;
+  constexpr u16 target_address = 0xBEEF;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  auto initial_state = cpu.GetState();
+  const u8 initial_sp = initial_state.sp;  // expected 0xFD
+  memory.Write(start_address,
+               QNes::ISA::JSR<QNes::AddressingMode::Absolute>::OPCODE);
+  memory.Write(start_address + 1, QNes::U16Low(target_address));
+  memory.Write(start_address + 2, QNes::U16High(target_address));
+
+  // Act
+  // Simulate the CPU cycles for JSR Absolute (6 cycles)
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+
+  // The 6502 pushes PC-1 (address of last operand byte) onto the stack.
+  const u16 pushed_return = static_cast<u16>(start_address + 2);
+  const u8 pushed_high = QNes::CPU_Testing::ReadStackValue(cpu, initial_sp);
+  const u8 pushed_low = QNes::CPU_Testing::ReadStackValue(cpu, initial_sp - 1);
+
+  // Assert
+  EXPECT_EQ(cpu_state.pc, target_address);
+  EXPECT_EQ(cpu_state.sp, static_cast<u8>(initial_sp - 2));
+  EXPECT_EQ(pushed_high, QNes::U16High(pushed_return));
+  EXPECT_EQ(pushed_low, QNes::U16Low(pushed_return));
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_F(AbsoluteBasicTest, RTSImpliedOnly) {
+  // Arrange
+  constexpr u16 start_address = 0x0000;
+  constexpr u16 final_pc = 0xC123;  // expected PC after RTS completes
+  // Load stack with return address minus 1 (as RTS will increment after pull)
+  const u16 stacked_return = static_cast<u16>(final_pc - 1);
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  QNes::CPU_Testing::SetSP(cpu, 0xFB);
+  const u8 sp_before = cpu.GetState().sp;
+  // Place low and high bytes at SP+1 and SP+2 respectively
+  memory.Write(static_cast<u16>(0x0100 + static_cast<u8>(sp_before + 1)),
+               QNes::U16Low(stacked_return));
+  memory.Write(static_cast<u16>(0x0100 + static_cast<u8>(sp_before + 2)),
+               QNes::U16High(stacked_return));
+  memory.Write(start_address,
+               QNes::ISA::RTS<QNes::AddressingMode::Implied>::OPCODE);
+
+  // Act
+  // Simulate the CPU cycles for RTS (6 cycles)
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+
+  // Assert
+  EXPECT_EQ(cpu_state.pc, final_pc);
+  EXPECT_EQ(cpu_state.sp, static_cast<u8>(sp_before + 2));
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_F(AbsoluteBasicTest, JSRThenRTS_ReturnsToCaller) {
+  // Arrange
+  constexpr u16 start_address = 0x0000;
+  constexpr u16 subroutine_address = 0x00A0;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  const u8 initial_sp = cpu.GetState().sp;
+
+  // Program: JSR subroutine; (at subroutine) RTS
+  memory.Write(start_address,
+               QNes::ISA::JSR<QNes::AddressingMode::Absolute>::OPCODE);
+  memory.Write(start_address + 1, QNes::U16Low(subroutine_address));
+  memory.Write(start_address + 2, QNes::U16High(subroutine_address));
+  memory.Write(subroutine_address,
+               QNes::ISA::RTS<QNes::AddressingMode::Implied>::OPCODE);
+
+  // Act
+  // Execute JSR (6 cycles) then RTS (6 cycles)
+  for (int cycle = 0; cycle < 12; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+
+  // Assert: PC should now be at the instruction after JSR (start + 3)
+  EXPECT_EQ(cpu_state.pc, static_cast<u16>(start_address + 3));
+  // SP should be restored to its initial value after JSR pushed 2 and RTS
+  // popped 2
+  EXPECT_EQ(cpu_state.sp, initial_sp);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
 
 TEST_P(LogicalOperationsAbsoluteTest, LogicalAND) {
   // Arrange
@@ -878,6 +1017,218 @@ TEST_P(IncrementDecrementAbsoluteTest, DecrementDEC) {
   EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
   EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
   EXPECT_EQ(cpu_state.pc, start_address + 3);  // PC should advance by 3
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_P(IncrementDecrementAbsoluteTest, ShiftLeft_ASL_Absolute) {
+  // Arrange
+  const u8 start_value = initial_value;
+  const u8 expected_result = static_cast<u8>((start_value << 1) & 0xFF);
+  const bool expected_carry = (start_value & 0x80) != 0;
+  const u16 test_address = 0x1234;
+  memory.Write(test_address, start_value);
+
+  // Simulate the instruction fetch cycle for ASL Absolute
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::ASL<QNes::AddressingMode::Absolute>::OPCODE);
+  memory.Write(start_address + 1, QNes::U16Low(test_address));
+  memory.Write(start_address + 2, QNes::U16High(test_address));
+
+  // Act
+  // Simulate the CPU cycles for ASL Absolute (6 cycles)
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(test_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 3);  // PC should advance by 3
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_P(IncrementDecrementAbsoluteTest, ShiftRight_LSR_Absolute) {
+  // Arrange
+  const u8 start_value = initial_value;
+  const u8 expected_result = static_cast<u8>((start_value >> 1) & 0xFF);
+  const bool expected_carry = (start_value & 0x01) != 0;
+  const u16 test_address = 0x1234;
+  memory.Write(test_address, start_value);
+
+  // Simulate the instruction fetch cycle for LSR Absolute
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::LSR<QNes::AddressingMode::Absolute>::OPCODE);
+  memory.Write(start_address + 1, QNes::U16Low(test_address));
+  memory.Write(start_address + 2, QNes::U16High(test_address));
+
+  // Act
+  // Simulate the CPU cycles for LSR Absolute (6 cycles)
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(test_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 3);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_P(IncrementDecrementAbsoluteTest, RotateLeft_ROL_Absolute_NoCarry) {
+  // Arrange
+  const u8 start_value = initial_value;
+  QNes::CPU_Testing::SetCarry(cpu, false);
+  const u8 expected_result = static_cast<u8>(((start_value << 1) | 0) & 0xFF);
+  const bool expected_carry = (start_value & 0x80) != 0;
+  const u16 test_address = 0x1234;
+  memory.Write(test_address, start_value);
+
+  // Simulate the instruction fetch cycle for ROL Absolute
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::ROL<QNes::AddressingMode::Absolute>::OPCODE);
+  memory.Write(start_address + 1, QNes::U16Low(test_address));
+  memory.Write(start_address + 2, QNes::U16High(test_address));
+
+  // Act
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(test_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 3);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_P(IncrementDecrementAbsoluteTest, RotateLeft_ROL_Absolute_Carry) {
+  // Arrange
+  const u8 start_value = initial_value;
+  QNes::CPU_Testing::SetCarry(cpu, true);
+  const u8 expected_result = static_cast<u8>(((start_value << 1) | 1) & 0xFF);
+  const bool expected_carry = (start_value & 0x80) != 0;
+  const u16 test_address = 0x1234;
+  memory.Write(test_address, start_value);
+
+  // Simulate the instruction fetch cycle for ROL Absolute
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::ROL<QNes::AddressingMode::Absolute>::OPCODE);
+  memory.Write(start_address + 1, QNes::U16Low(test_address));
+  memory.Write(start_address + 2, QNes::U16High(test_address));
+
+  // Act
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(test_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 3);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_P(IncrementDecrementAbsoluteTest, RotateRight_ROR_Absolute_NoCarry) {
+  // Arrange
+  const u8 start_value = initial_value;
+  QNes::CPU_Testing::SetCarry(cpu, false);
+  const u8 expected_result =
+      static_cast<u8>(((start_value >> 1) | 0x00) & 0xFF);
+  const bool expected_carry = (start_value & 0x01) != 0;
+  const u16 test_address = 0x1234;
+  memory.Write(test_address, start_value);
+
+  // Simulate the instruction fetch cycle for ROR Absolute
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::ROR<QNes::AddressingMode::Absolute>::OPCODE);
+  memory.Write(start_address + 1, QNes::U16Low(test_address));
+  memory.Write(start_address + 2, QNes::U16High(test_address));
+
+  // Act
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(test_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 3);
+  EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
+}
+
+TEST_P(IncrementDecrementAbsoluteTest, RotateRight_ROR_Absolute_Carry) {
+  // Arrange
+  const u8 start_value = initial_value;
+  QNes::CPU_Testing::SetCarry(cpu, true);
+  const u8 expected_result =
+      static_cast<u8>(((start_value >> 1) | 0x80) & 0xFF);
+  const bool expected_carry = (start_value & 0x01) != 0;
+  const u16 test_address = 0x1234;
+  memory.Write(test_address, start_value);
+
+  // Simulate the instruction fetch cycle for ROR Absolute
+  constexpr u16 start_address = 0x0000;
+  QNes::CPU_Testing::SetPC(cpu, start_address);
+  QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
+  memory.Write(start_address,
+               QNes::ISA::ROR<QNes::AddressingMode::Absolute>::OPCODE);
+  memory.Write(start_address + 1, QNes::U16Low(test_address));
+  memory.Write(start_address + 2, QNes::U16High(test_address));
+
+  // Act
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    cpu.Step();
+  }
+
+  auto cpu_state = cpu.GetState();
+  auto mem_value = memory.Read(test_address);
+
+  // Assert
+  EXPECT_EQ(mem_value, expected_result);
+  EXPECT_EQ(cpu_state.status.carry, expected_carry);
+  EXPECT_EQ(cpu_state.status.zero, expected_result == 0);
+  EXPECT_EQ(cpu_state.status.negative, (expected_result & 0x80) != 0);
+  EXPECT_EQ(cpu_state.pc, start_address + 3);
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu), 0);
 }
 

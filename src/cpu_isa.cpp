@@ -17,6 +17,10 @@ struct ISA_detail {
     CMP,
     INC,
     DEC,
+    SHIFT_LEFT,
+    SHIFT_RIGHT,
+    ROTATE_LEFT,
+    ROTATE_RIGHT,
   };
 
   static QNES_FORCE_INLINE void ReadValueFromMem(MemBus &mem_bus, u8 high_addr,
@@ -87,6 +91,24 @@ struct ISA_detail {
       ISA_detail::SetZNFlags(cpu, reg);
     } else if constexpr (OP == Operation::DEC) {
       --reg;
+      ISA_detail::SetZNFlags(cpu, reg);
+    } else if constexpr (OP == Operation::SHIFT_LEFT) {
+      cpu.state.status.carry = (reg & 0x80) != 0;
+      reg <<= 1;
+      ISA_detail::SetZNFlags(cpu, reg);
+    } else if constexpr (OP == Operation::SHIFT_RIGHT) {
+      cpu.state.status.carry = (reg & 0x01) != 0;
+      reg >>= 1;
+      ISA_detail::SetZNFlags(cpu, reg);
+    } else if constexpr (OP == Operation::ROTATE_LEFT) {
+      const bool carry = cpu.state.status.carry;
+      cpu.state.status.carry = (reg & 0x80) != 0;
+      reg = (reg << 1) | carry;
+      ISA_detail::SetZNFlags(cpu, reg);
+    } else if constexpr (OP == Operation::ROTATE_RIGHT) {
+      const bool carry = cpu.state.status.carry;
+      cpu.state.status.carry = (reg & 0x01) != 0;
+      reg = (reg >> 1) | (carry << 7);
       ISA_detail::SetZNFlags(cpu, reg);
     } else {
       ASSERT(false, "Invalid operation");
@@ -734,8 +756,7 @@ struct ISA_detail {
       case 4: {
         // dummy write
         ISA_detail::WriteValueToMem(cpu.mem_bus, cpu.mem_bus.adh,
-                                    cpu.mem_bus.adl,
-                                    cpu.mem_bus.op_latch);
+                                    cpu.mem_bus.adl, cpu.mem_bus.op_latch);
         ISA_detail::ExecuteOperation<OP>(cpu, cpu.mem_bus.op_latch,
                                          cpu.mem_bus.op_latch);
         ++cpu.instruction_cycle;
@@ -743,8 +764,7 @@ struct ISA_detail {
       case 5: {
         // final write
         ISA_detail::WriteValueToMem(cpu.mem_bus, cpu.mem_bus.adh,
-                                    cpu.mem_bus.adl,
-                                    cpu.mem_bus.op_latch);
+                                    cpu.mem_bus.adl, cpu.mem_bus.op_latch);
         cpu.instruction_cycle = 0;
       } break;
       default:
@@ -1511,6 +1531,235 @@ void ISA::DEX<AddressingMode::Implied>::Execute(CPU &cpu) {
 
 void ISA::DEY<AddressingMode::Implied>::Execute(CPU &cpu) {
   ISA_detail::OperationImplied<ISA_detail::Operation::DEC>(cpu, cpu.state.y);
+}
+
+void ISA::ASL<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ISA_detail::OperationImplied<ISA_detail::Operation::SHIFT_LEFT>(cpu,
+                                                                  cpu.state.a);
+}
+
+void ISA::ASL<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPage_ReadModifyWrite<
+      ISA_detail::Operation::SHIFT_LEFT>(cpu);
+}
+
+void ISA::ASL<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPageIndexed_ReadModifyWrite<
+      ISA_detail::Operation::SHIFT_LEFT>(cpu, cpu.state.x);
+}
+
+void ISA::ASL<AddressingMode::Absolute>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsolute_ReadModifyWrite<
+      ISA_detail::Operation::SHIFT_LEFT>(cpu);
+}
+
+void ISA::ASL<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsoluteIndexed_ReadModifyWrite<
+      ISA_detail::Operation::SHIFT_LEFT>(cpu, cpu.state.x);
+}
+
+void ISA::LSR<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ISA_detail::OperationImplied<ISA_detail::Operation::SHIFT_RIGHT>(cpu,
+                                                                   cpu.state.a);
+}
+
+void ISA::LSR<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPage_ReadModifyWrite<
+      ISA_detail::Operation::SHIFT_RIGHT>(cpu);
+}
+
+void ISA::LSR<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPageIndexed_ReadModifyWrite<
+      ISA_detail::Operation::SHIFT_RIGHT>(cpu, cpu.state.x);
+}
+
+void ISA::LSR<AddressingMode::Absolute>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsolute_ReadModifyWrite<
+      ISA_detail::Operation::SHIFT_RIGHT>(cpu);
+}
+
+void ISA::LSR<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsoluteIndexed_ReadModifyWrite<
+      ISA_detail::Operation::SHIFT_RIGHT>(cpu, cpu.state.x);
+}
+
+void ISA::ROL<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ISA_detail::OperationImplied<ISA_detail::Operation::ROTATE_LEFT>(cpu,
+                                                                   cpu.state.a);
+}
+
+void ISA::ROL<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPage_ReadModifyWrite<
+      ISA_detail::Operation::ROTATE_LEFT>(cpu);
+}
+
+void ISA::ROL<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPageIndexed_ReadModifyWrite<
+      ISA_detail::Operation::ROTATE_LEFT>(cpu, cpu.state.x);
+}
+
+void ISA::ROL<AddressingMode::Absolute>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsolute_ReadModifyWrite<
+      ISA_detail::Operation::ROTATE_LEFT>(cpu);
+}
+
+void ISA::ROL<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsoluteIndexed_ReadModifyWrite<
+      ISA_detail::Operation::ROTATE_LEFT>(cpu, cpu.state.x);
+}
+
+void ISA::ROR<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ISA_detail::OperationImplied<ISA_detail::Operation::ROTATE_RIGHT>(
+      cpu, cpu.state.a);
+}
+
+void ISA::ROR<AddressingMode::ZeroPage>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPage_ReadModifyWrite<
+      ISA_detail::Operation::ROTATE_RIGHT>(cpu);
+}
+
+void ISA::ROR<AddressingMode::ZeroPageX>::Execute(CPU &cpu) {
+  ISA_detail::OperationZeroPageIndexed_ReadModifyWrite<
+      ISA_detail::Operation::ROTATE_RIGHT>(cpu, cpu.state.x);
+}
+
+void ISA::ROR<AddressingMode::Absolute>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsolute_ReadModifyWrite<
+      ISA_detail::Operation::ROTATE_RIGHT>(cpu);
+}
+
+void ISA::ROR<AddressingMode::AbsoluteX>::Execute(CPU &cpu) {
+  ISA_detail::OperationAbsoluteIndexed_ReadModifyWrite<
+      ISA_detail::Operation::ROTATE_RIGHT>(cpu, cpu.state.x);
+}
+
+void ISA::JMP<AddressingMode::Absolute>::Execute(CPU &cpu) {
+  switch (cpu.instruction_cycle) {
+    case 1: {
+      // Fetch low byte of address
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                   cpu.mem_bus.op_latch);
+      ++cpu.state.pc;
+      ++cpu.instruction_cycle;
+    } break;
+    case 2: {
+      // Fetch high byte of address
+      u16 address = cpu.mem_bus.op_latch;
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                   cpu.mem_bus.op_latch);
+      address = (cpu.mem_bus.op_latch << 8) | address;
+      cpu.state.pc = address;
+      cpu.instruction_cycle = 0;
+    } break;
+    default:
+      ASSERT(false, "Invalid cycle");
+  }
+}
+
+void ISA::JMP<AddressingMode::Indirect>::Execute(CPU &cpu) {
+  switch (cpu.instruction_cycle) {
+    case 1: {
+      // Fetch low byte of pointer
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                   cpu.mem_bus.adl);
+      ++cpu.state.pc;
+      ++cpu.instruction_cycle;
+    } break;
+    case 2: {
+      // Fetch high byte of pointer
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                   cpu.mem_bus.adh);
+      ++cpu.state.pc;
+      ++cpu.instruction_cycle;
+    } break;
+    case 3: {
+      // Fetch low byte of address
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
+                                   cpu.mem_bus.adl, cpu.mem_bus.op_latch);
+      ++cpu.instruction_cycle;
+    } break;
+    case 4: {
+      // Fetch high byte of address and set PC
+      u16 address = cpu.mem_bus.op_latch;
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, cpu.mem_bus.adh,
+                                   cpu.mem_bus.adl + 1, cpu.mem_bus.op_latch);
+      address = CombineToU16(cpu.mem_bus.op_latch, address);
+      cpu.state.pc = address;
+      cpu.instruction_cycle = 0;
+    } break;
+    default:
+      ASSERT(false, "Invalid cycle");
+  }
+}
+
+void ISA::JSR<AddressingMode::Absolute>::Execute(CPU &cpu) {
+  switch (cpu.instruction_cycle) {
+    case 1: {
+      // Fetch low byte of address
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                   cpu.mem_bus.adl);
+      ++cpu.state.pc;
+      ++cpu.instruction_cycle;
+    } break;
+    case 2: {
+      // internal operation
+      ++cpu.instruction_cycle;
+    } break;
+    case 3: {
+      // push PCH on stack
+      cpu.PushStack(cpu.state.pc >> 8);
+      ++cpu.instruction_cycle;
+    } break;
+    case 4: {
+      // push PCL on stack
+      cpu.PushStack(cpu.state.pc & 0xFF);
+      ++cpu.instruction_cycle;
+    } break;
+    case 5: {
+      // Fetch high byte of address and set PC
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+                                   cpu.mem_bus.adh);
+      u16 address = CombineToU16(cpu.mem_bus.adh, cpu.mem_bus.adl);
+      cpu.state.pc = address;
+      cpu.instruction_cycle = 0;
+    } break;
+    default:
+      ASSERT(false, "Invalid cycle");
+  }
+}
+
+void ISA::RTS<AddressingMode::Implied>::Execute(CPU &cpu) {
+  switch (cpu.instruction_cycle) {
+    case 1: {
+      // Read next PC byte and throw it away
+      u8 dummy = 0;
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, dummy);
+      ++cpu.instruction_cycle;
+    } break;
+    case 2: {
+      // increment SP
+      cpu.IncrementSP();
+      ++cpu.instruction_cycle;
+    } break;
+    case 3: {
+      // pull PCL from stack and increment SP
+      cpu.state.pc = CombineToU16(0x00, cpu.ReadStackValue());
+      cpu.IncrementSP();
+      ++cpu.instruction_cycle;
+    } break;
+    case 4: {
+      // pull PCH from stack - dont increment SP
+      cpu.state.pc = CombineToU16(cpu.ReadStackValue(), cpu.state.pc & 0xFF);
+      ++cpu.instruction_cycle;
+    } break;
+    case 5: {
+      // increment PC
+      ++cpu.state.pc;
+      cpu.instruction_cycle = 0;
+    } break;
+    default:
+      ASSERT(false, "Invalid cycle");
+  }
 }
 
 }  // namespace QNes
