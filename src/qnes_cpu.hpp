@@ -79,6 +79,7 @@ class CPU {
   State state{};
 
   void ResetInternal();
+  u8 reset_cycle = 0;
 
   void WriteStackValue(u8 value);
   u8 ReadStackValue();
@@ -105,6 +106,9 @@ class CPU {
 };
 
 struct CPU_Testing {
+  static CPU::GlobalMode GetGlobalMode(const CPU &cpu) {
+    return cpu.glabal_mode;
+  }
   static void SetGlobalMode(CPU &cpu, CPU::GlobalMode mode) {
     cpu.glabal_mode = mode;
   }
@@ -114,6 +118,8 @@ struct CPU_Testing {
       cpu.Step();
     }
   }
+
+  static void ZeroResetCycle(CPU &cpu) { cpu.reset_cycle = 0; }
   static void SetPC(CPU &cpu, u16 pc) { cpu.state.pc = pc; }
   static void SetCarry(CPU &cpu, bool carry) { cpu.state.status.carry = carry; }
   static bool GetCarry(const CPU &cpu) { return cpu.state.status.carry; }

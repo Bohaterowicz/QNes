@@ -27,7 +27,6 @@ void CPU::Step() {
 }
 
 void CPU::ResetInternal() {
-  thread_local u8 reset_cycle = 0;
   thread_local u8 pc_adl = 0;
   thread_local u8 pc_adh = 0;
   switch (reset_cycle) {
