@@ -12,6 +12,7 @@ class CPUISAStackTest : public ::testing::Test {
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
     cpu.Reset();
+    QNes::CPU_Testing::ExecuteReset(cpu);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
   }

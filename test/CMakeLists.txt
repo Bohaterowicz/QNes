@@ -22,6 +22,7 @@ add_executable(
   cpu_tests/stack.cpp
   cpu_tests/isa_stack.cpp
   cpu_tests/isa_indirect.cpp
+  cpu_tests/isa_relative.cpp
   cpu_tests/isa_register_transfer.cpp)
 
 target_link_libraries(qnes_test qnes_lib GTest::gtest_main)

@@ -19,7 +19,6 @@ enum class AddressingMode : u8 {
   Indirect,
   XIndirect,
   IndirectY,
-  Accumulator,
   Relative
 };
 
@@ -288,6 +287,132 @@ struct ISA {
   template <AddressingMode MODE>
   struct RTS {
     static void Execute(CPU &cpu) { ASSERT(false, "Invalid RTS Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct BCC {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid BCC Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct BCS {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid BCS Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct BEQ {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid BEQ Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct BMI {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid BMI Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct BNE {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid BNE Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct BPL {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid BPL Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct BVC {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid BVC Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct BVS {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid BVS Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct CLC {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid CLC Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct CLD {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid CLD Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct CLI {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid CLI Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct CLV {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid CLV Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct SEC {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid SEC Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct SED {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid SED Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct SEI {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid SEI Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct NOP {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid NOP Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct RTI {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid RTI Instruction"); }
+    static constexpr u8 OPCODE = 0xFF;
+    static constexpr u8 CYCLES = 0;
+  };
+
+  template <AddressingMode MODE>
+  struct BRK {
+    static void Execute(CPU &cpu) { ASSERT(false, "Invalid BRK Instruction"); }
     static constexpr u8 OPCODE = 0xFF;
     static constexpr u8 CYCLES = 0;
   };
@@ -1224,6 +1349,132 @@ struct ISA::RTS<AddressingMode::Implied> {
   static constexpr u8 CYCLES = 6;
 };
 
+template <>
+struct ISA::BCC<AddressingMode::Relative> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x90;
+  static constexpr u8 CYCLES = 2;  // +1 if branch taken and +1 to a new page
+};
+
+template <>
+struct ISA::BCS<AddressingMode::Relative> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xB0;
+  static constexpr u8 CYCLES = 2;  // +1 if branch taken and +1 to a new page
+};
+
+template <>
+struct ISA::BEQ<AddressingMode::Relative> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xF0;
+  static constexpr u8 CYCLES = 2;  // +1 if branch taken and +1 to a new page
+};
+
+template <>
+struct ISA::BMI<AddressingMode::Relative> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x30;
+  static constexpr u8 CYCLES = 2;  // +1 if branch taken and +1 to a new page
+};
+
+template <>
+struct ISA::BNE<AddressingMode::Relative> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xD0;
+  static constexpr u8 CYCLES = 2;  // +1 if branch taken and +1 to a new page
+};
+
+template <>
+struct ISA::BPL<AddressingMode::Relative> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x10;
+  static constexpr u8 CYCLES = 2;  // +1 if branch taken and +1 to a new page
+};
+
+template <>
+struct ISA::BVC<AddressingMode::Relative> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x50;
+  static constexpr u8 CYCLES = 2;  // +1 if branch taken and +1 to a new page
+};
+
+template <>
+struct ISA::BVS<AddressingMode::Relative> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x70;
+  static constexpr u8 CYCLES = 2;  // +1 if branch taken and +1 to a new page
+};
+
+template <>
+struct ISA::CLC<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x18;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::CLD<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xD8;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::CLI<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x58;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::CLV<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xB8;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::SEC<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x38;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::SED<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xF8;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::SEI<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x78;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::NOP<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0xEA;
+  static constexpr u8 CYCLES = 2;
+};
+
+template <>
+struct ISA::RTI<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x40;
+  static constexpr u8 CYCLES = 6;
+};
+
+template <>
+struct ISA::BRK<AddressingMode::Implied> {
+  static void Execute(CPU &cpu);
+  static constexpr u8 OPCODE = 0x00;
+  static constexpr u8 CYCLES = 7;
+};
+
 inline constexpr auto Instructions = [] constexpr {
   std::array<ISA::InstructionFunc, 256> table{};
   table.fill(nullptr);
@@ -1563,6 +1814,78 @@ inline constexpr auto Instructions = [] constexpr {
   // RTS - Return from Subroutine
   table[ISA::RTS<AddressingMode::Implied>::OPCODE] =
       ISA::RTS<AddressingMode::Implied>::Execute;
+
+  // BCC - Branch if Carry Clear
+  table[ISA::BCC<AddressingMode::Relative>::OPCODE] =
+      ISA::BCC<AddressingMode::Relative>::Execute;
+
+  // BCS - Branch if Carry Set
+  table[ISA::BCS<AddressingMode::Relative>::OPCODE] =
+      ISA::BCS<AddressingMode::Relative>::Execute;
+
+  // BEQ - Branch if Equal
+  table[ISA::BEQ<AddressingMode::Relative>::OPCODE] =
+      ISA::BEQ<AddressingMode::Relative>::Execute;
+
+  // BMI - Branch if Minus
+  table[ISA::BMI<AddressingMode::Relative>::OPCODE] =
+      ISA::BMI<AddressingMode::Relative>::Execute;
+
+  // BNE - Branch if Not Equal
+  table[ISA::BNE<AddressingMode::Relative>::OPCODE] =
+      ISA::BNE<AddressingMode::Relative>::Execute;
+
+  // BPL - Branch if Plus
+  table[ISA::BPL<AddressingMode::Relative>::OPCODE] =
+      ISA::BPL<AddressingMode::Relative>::Execute;
+
+  // BVC - Branch if Overflow Clear
+  table[ISA::BVC<AddressingMode::Relative>::OPCODE] =
+      ISA::BVC<AddressingMode::Relative>::Execute;
+
+  // BVS - Branch if Overflow Set
+  table[ISA::BVS<AddressingMode::Relative>::OPCODE] =
+      ISA::BVS<AddressingMode::Relative>::Execute;
+
+  // CLC - Clear Carry Flag
+  table[ISA::CLC<AddressingMode::Implied>::OPCODE] =
+      ISA::CLC<AddressingMode::Implied>::Execute;
+
+  // CLD - Clear Decimal Mode Flag
+  table[ISA::CLD<AddressingMode::Implied>::OPCODE] =
+      ISA::CLD<AddressingMode::Implied>::Execute;
+
+  // CLI - Clear Interrupt Disable Flag
+  table[ISA::CLI<AddressingMode::Implied>::OPCODE] =
+      ISA::CLI<AddressingMode::Implied>::Execute;
+
+  // CLV - Clear Overflow Flag
+  table[ISA::CLV<AddressingMode::Implied>::OPCODE] =
+      ISA::CLV<AddressingMode::Implied>::Execute;
+
+  // SEC - Set Carry Flag
+  table[ISA::SEC<AddressingMode::Implied>::OPCODE] =
+      ISA::SEC<AddressingMode::Implied>::Execute;
+
+  // SED - Set Decimal Mode Flag
+  table[ISA::SED<AddressingMode::Implied>::OPCODE] =
+      ISA::SED<AddressingMode::Implied>::Execute;
+
+  // SEI - Set Interrupt Disable Flag
+  table[ISA::SEI<AddressingMode::Implied>::OPCODE] =
+      ISA::SEI<AddressingMode::Implied>::Execute;
+
+  // NOP - No Operation
+  table[ISA::NOP<AddressingMode::Implied>::OPCODE] =
+      ISA::NOP<AddressingMode::Implied>::Execute;
+
+  // RTI - Return from Interrupt
+  table[ISA::RTI<AddressingMode::Implied>::OPCODE] =
+      ISA::RTI<AddressingMode::Implied>::Execute;
+
+  // BRK - Break
+  table[ISA::BRK<AddressingMode::Implied>::OPCODE] =
+      ISA::BRK<AddressingMode::Implied>::Execute;
 
   return table;
 }();

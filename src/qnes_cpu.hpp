@@ -41,6 +41,11 @@ class CPU {
   CPU &operator=(CPU &&) = delete;
   ~CPU() = default;
 
+  enum class GlobalMode : u8 {
+    RESET = 0,
+    RUN,
+  };
+
   union StatusFlags {
     u8 status = 0;
     struct {
@@ -70,7 +75,10 @@ class CPU {
   void Step();
 
  private:
+  GlobalMode glabal_mode = GlobalMode::RESET;
   State state{};
+
+  void ResetInternal();
 
   void WriteStackValue(u8 value);
   u8 ReadStackValue();
@@ -97,6 +105,15 @@ class CPU {
 };
 
 struct CPU_Testing {
+  static void SetGlobalMode(CPU &cpu, CPU::GlobalMode mode) {
+    cpu.glabal_mode = mode;
+  }
+  static void ExecuteReset(CPU &cpu) {
+    cpu.Reset();
+    for (int i = 0; i < 5; ++i) {
+      cpu.Step();
+    }
+  }
   static void SetPC(CPU &cpu, u16 pc) { cpu.state.pc = pc; }
   static void SetCarry(CPU &cpu, bool carry) { cpu.state.status.carry = carry; }
   static bool GetCarry(const CPU &cpu) { return cpu.state.status.carry; }

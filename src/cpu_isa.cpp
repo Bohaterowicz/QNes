@@ -23,6 +23,17 @@ struct ISA_detail {
     ROTATE_RIGHT,
   };
 
+  enum class BranchCondition : u8 {
+    BCC,
+    BCS,
+    BEQ,
+    BMI,
+    BNE,
+    BPL,
+    BVC,
+    BVS,
+  };
+
   static QNES_FORCE_INLINE void ReadValueFromMem(MemBus &mem_bus, u8 high_addr,
                                                  u8 low_addr, u8 &reg) {
     mem_bus.SetAddress(high_addr, low_addr);
@@ -45,6 +56,30 @@ struct ISA_detail {
                                                           u8 result) {
     cpu.state.status.overflow =
         (~(value ^ operand) & (value ^ result) & 0x80) != 0;
+  }
+
+  template <BranchCondition CONDITION>
+  static QNES_FORCE_INLINE bool ExecuteCondition(CPU &cpu) {
+    if constexpr (CONDITION == BranchCondition::BCC) {
+      return !cpu.state.status.carry;
+    } else if constexpr (CONDITION == BranchCondition::BCS) {
+      return cpu.state.status.carry;
+    } else if constexpr (CONDITION == BranchCondition::BEQ) {
+      return cpu.state.status.zero;
+    } else if constexpr (CONDITION == BranchCondition::BMI) {
+      return cpu.state.status.negative;
+    } else if constexpr (CONDITION == BranchCondition::BNE) {
+      return !cpu.state.status.zero;
+    } else if constexpr (CONDITION == BranchCondition::BPL) {
+      return !cpu.state.status.negative;
+    } else if constexpr (CONDITION == BranchCondition::BVC) {
+      return !cpu.state.status.overflow;
+    } else if constexpr (CONDITION == BranchCondition::BVS) {
+      return cpu.state.status.overflow;
+    } else {
+      ASSERT(false, "Invalid branch condition");
+      return false;
+    }
   }
 
   template <Operation OP>
@@ -120,7 +155,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch low byte of address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.adl);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -147,7 +183,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch immediate value
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, reg);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), reg);
         ++cpu.state.pc;
         // Set Zero and Negative flags based on the value loaded
         SetZNFlags(cpu, reg);
@@ -163,7 +200,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch zero page address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.adl);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -184,7 +222,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch zero page address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.adl);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -214,7 +253,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch low byte of address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.adl);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -263,7 +303,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Read pointer address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.op_latch);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.op_latch);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -308,7 +349,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Read pointer address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.op_latch);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.op_latch);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -364,7 +406,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch low byte of address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.adl);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -388,7 +431,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch zero page address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.adl);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -407,7 +451,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch zero page address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.adl);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -434,7 +479,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch absolute address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.adl);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -476,7 +522,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Read pointer address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.op_latch);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.op_latch);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -515,7 +562,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Read pointer address
-        ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, cpu.mem_bus.op_latch);
+        ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                         U16Low(cpu.state.pc), cpu.mem_bus.op_latch);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -576,7 +624,8 @@ struct ISA_detail {
   static QNES_FORCE_INLINE void OperationImmediate(CPU &cpu, u8 &reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc),
                                      cpu.mem_bus.op_latch);
         ISA_detail::ExecuteOperation<OP>(cpu, reg, cpu.mem_bus.op_latch);
         ++cpu.state.pc;
@@ -591,8 +640,8 @@ struct ISA_detail {
   static QNES_FORCE_INLINE void OperationZeroPage(CPU &cpu, u8 &reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -611,8 +660,8 @@ struct ISA_detail {
   static QNES_FORCE_INLINE void OperationZeroPage_ReadModifyWrite(CPU &cpu) {
     switch (cpu.instruction_cycle) {
       case 1: {
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -645,8 +694,8 @@ struct ISA_detail {
                                                          u8 &idx_reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -672,8 +721,8 @@ struct ISA_detail {
       CPU &cpu, u8 &idx_reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -711,8 +760,8 @@ struct ISA_detail {
   static QNES_FORCE_INLINE void OperationAbsolute(CPU &cpu, u8 &reg) {
     switch (cpu.instruction_cycle) {
       case 1: {
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -737,8 +786,8 @@ struct ISA_detail {
   static QNES_FORCE_INLINE void OperationAbsolute_ReadModifyWrite(CPU &cpu) {
     switch (cpu.instruction_cycle) {
       case 1: {
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -778,8 +827,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch low byte of address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -833,8 +882,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch low byte of address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
-                                     cpu.mem_bus.adl);
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc), cpu.mem_bus.adl);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
       } break;
@@ -892,7 +941,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch pointer address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc),
                                      cpu.mem_bus.op_latch);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
@@ -952,7 +1002,8 @@ struct ISA_detail {
     switch (cpu.instruction_cycle) {
       case 1: {
         // Fetch low byte of address
-        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc,
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc),
                                      cpu.mem_bus.op_latch);
         ++cpu.state.pc;
         ++cpu.instruction_cycle;
@@ -1003,6 +1054,56 @@ struct ISA_detail {
         ASSERT(false, "Invalid cycle");
     }
   }
+
+  template <BranchCondition CONDITION>
+  static QNES_FORCE_INLINE void RelativeBranch(CPU &cpu) {
+    switch (cpu.instruction_cycle) {
+      case 1: {
+        // Fetch operand
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                     U16Low(cpu.state.pc),
+                                     cpu.mem_bus.op_latch);
+        // Evaluate branch condition
+        if (!ISA_detail::ExecuteCondition<CONDITION>(cpu)) {
+          // branch not taken - end instruction - next cycle will fetch the next
+          // instruction
+          cpu.instruction_cycle = 0;
+        } else {
+          ++cpu.instruction_cycle;
+        }
+        ++cpu.state.pc;
+      } break;
+      case 2: {
+        // Fetch OPCODE for next instruction - dummy read
+        u8 dummy = 0;
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, dummy);
+        // Add operand to PCL and check for page crossing
+        auto offset = static_cast<int8_t>(cpu.mem_bus.op_latch);
+        u16 new_pc = cpu.state.pc + static_cast<int16_t>(offset);
+        cpu.page_crossed = U16High(new_pc) != U16High(cpu.state.pc);
+        cpu.state.pc = CombineToU16(U16High(cpu.state.pc), U16Low(new_pc));
+        if (cpu.page_crossed) {
+          ++cpu.instruction_cycle;
+          cpu.mem_bus.op_latch = U16High(new_pc);
+        } else {
+          cpu.instruction_cycle = 0;
+        }
+      } break;
+      case 3: {
+        ASSERT(cpu.page_crossed,
+               "Unexpected cycle for Relative Branch (page was not crossed)");
+        cpu.page_crossed = false;
+        // Fetch OPCODE for next instruction - dummy read
+        u8 dummy = 0;
+        ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, dummy);
+        // Fix high byte of PC
+        cpu.state.pc = CombineToU16(cpu.mem_bus.op_latch, U16Low(cpu.state.pc));
+        cpu.instruction_cycle = 0;
+      } break;
+      default:
+        ASSERT(false, "Invalid cycle");
+    }
+  }
 };
 
 void ISA::PHA<AddressingMode::Implied>::Execute(CPU &cpu) {
@@ -1010,7 +1111,8 @@ void ISA::PHA<AddressingMode::Implied>::Execute(CPU &cpu) {
     case 1: {
       // Dummy read of the next instruction byte
       u8 dummy = 0;
-      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, dummy);
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                   U16Low(cpu.state.pc), dummy);
       ++cpu.instruction_cycle;
     } break;
     case 2: {
@@ -1028,7 +1130,8 @@ void ISA::PLA<AddressingMode::Implied>::Execute(CPU &cpu) {
     case 1: {
       // Dummy read of the next instruction byte
       u8 dummy = 0;
-      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, dummy);
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                   U16Low(cpu.state.pc), dummy);
       ++cpu.instruction_cycle;
     } break;
     case 2: {
@@ -1052,7 +1155,8 @@ void ISA::PHP<AddressingMode::Implied>::Execute(CPU &cpu) {
     case 1: {
       // Dummy read of the next instruction byte
       u8 dummy = 0;
-      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, dummy);
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                   U16Low(cpu.state.pc), dummy);
       ++cpu.instruction_cycle;
     } break;
     case 2: {
@@ -1073,7 +1177,8 @@ void ISA::PLP<AddressingMode::Implied>::Execute(CPU &cpu) {
     case 1: {
       // Dummy read of the next instruction byte
       u8 dummy = 0;
-      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, dummy);
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, U16High(cpu.state.pc),
+                                   U16Low(cpu.state.pc), dummy);
       ++cpu.instruction_cycle;
     } break;
     case 2: {
@@ -1755,6 +1860,167 @@ void ISA::RTS<AddressingMode::Implied>::Execute(CPU &cpu) {
     case 5: {
       // increment PC
       ++cpu.state.pc;
+      cpu.instruction_cycle = 0;
+    } break;
+    default:
+      ASSERT(false, "Invalid cycle");
+  }
+}
+
+void ISA::BCC<AddressingMode::Relative>::Execute(CPU &cpu) {
+  ISA_detail::RelativeBranch<ISA_detail::BranchCondition::BCC>(cpu);
+}
+
+void ISA::BCS<AddressingMode::Relative>::Execute(CPU &cpu) {
+  ISA_detail::RelativeBranch<ISA_detail::BranchCondition::BCS>(cpu);
+}
+
+void ISA::BEQ<AddressingMode::Relative>::Execute(CPU &cpu) {
+  ISA_detail::RelativeBranch<ISA_detail::BranchCondition::BEQ>(cpu);
+}
+
+void ISA::BMI<AddressingMode::Relative>::Execute(CPU &cpu) {
+  ISA_detail::RelativeBranch<ISA_detail::BranchCondition::BMI>(cpu);
+}
+
+void ISA::BNE<AddressingMode::Relative>::Execute(CPU &cpu) {
+  ISA_detail::RelativeBranch<ISA_detail::BranchCondition::BNE>(cpu);
+}
+
+void ISA::BPL<AddressingMode::Relative>::Execute(CPU &cpu) {
+  ISA_detail::RelativeBranch<ISA_detail::BranchCondition::BPL>(cpu);
+}
+
+void ISA::BVC<AddressingMode::Relative>::Execute(CPU &cpu) {
+  ISA_detail::RelativeBranch<ISA_detail::BranchCondition::BVC>(cpu);
+}
+
+void ISA::BVS<AddressingMode::Relative>::Execute(CPU &cpu) {
+  ISA_detail::RelativeBranch<ISA_detail::BranchCondition::BVS>(cpu);
+}
+
+void ISA::CLC<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ASSERT(cpu.instruction_cycle == 1, "Invalid cycle");
+  cpu.state.status.carry = false;
+  cpu.instruction_cycle = 0;
+}
+
+void ISA::CLD<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ASSERT(cpu.instruction_cycle == 1, "Invalid cycle");
+  cpu.state.status.decimal_mode = false;
+  cpu.instruction_cycle = 0;
+}
+
+void ISA::CLI<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ASSERT(cpu.instruction_cycle == 1, "Invalid cycle");
+  cpu.state.status.interrupt_disable = false;
+  cpu.instruction_cycle = 0;
+}
+
+void ISA::CLV<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ASSERT(cpu.instruction_cycle == 1, "Invalid cycle");
+  cpu.state.status.overflow = false;
+  cpu.instruction_cycle = 0;
+}
+
+void ISA::SEC<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ASSERT(cpu.instruction_cycle == 1, "Invalid cycle");
+  cpu.state.status.carry = true;
+  cpu.instruction_cycle = 0;
+}
+
+void ISA::SED<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ASSERT(cpu.instruction_cycle == 1, "Invalid cycle");
+  cpu.state.status.decimal_mode = true;
+  cpu.instruction_cycle = 0;
+}
+
+void ISA::SEI<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ASSERT(cpu.instruction_cycle == 1, "Invalid cycle");
+  cpu.state.status.interrupt_disable = true;
+  cpu.instruction_cycle = 0;
+}
+
+void ISA::NOP<AddressingMode::Implied>::Execute(CPU &cpu) {
+  ASSERT(cpu.instruction_cycle == 1, "Invalid cycle");
+  cpu.instruction_cycle = 0;
+}
+
+void ISA::RTI<AddressingMode::Implied>::Execute(CPU &cpu) {
+  switch (cpu.instruction_cycle) {
+    case 1: {
+      // dummy read
+      u8 dummy = 0;
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, dummy);
+      ++cpu.state.pc;
+      ++cpu.instruction_cycle;
+    } break;
+    case 2: {
+      // increment SP
+      cpu.IncrementSP();
+      ++cpu.instruction_cycle;
+    } break;
+    case 3: {
+      // pull status from stack, increment SP
+      cpu.state.status.status = cpu.ReadStackValue();
+      cpu.IncrementSP();
+      ++cpu.instruction_cycle;
+    } break;
+    case 4: {
+      // pull PCL from stack, increment SP
+      cpu.state.pc = CombineToU16(cpu.state.pc, cpu.ReadStackValue());
+      cpu.IncrementSP();
+      ++cpu.instruction_cycle;
+    } break;
+    case 5: {
+      // pull PCH from stack
+      cpu.state.pc = CombineToU16(cpu.ReadStackValue(), U16Low(cpu.state.pc));
+      cpu.instruction_cycle = 0;
+    } break;
+    default:
+      ASSERT(false, "Invalid cycle");
+  }
+}
+
+void ISA::BRK<AddressingMode::Implied>::Execute(CPU &cpu) {
+  switch (cpu.instruction_cycle) {
+    case 1: {
+      // dummy read
+      u8 dummy = 0;
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0x00, cpu.state.pc, dummy);
+      ++cpu.state.pc;
+      ++cpu.instruction_cycle;
+    } break;
+    case 2: {
+      // Push  PCH to stack
+      cpu.PushStack(U16High(cpu.state.pc));
+      ++cpu.instruction_cycle;
+    } break;
+    case 3: {
+      // Push PCL to stack
+      cpu.PushStack(U16Low(cpu.state.pc));
+      ++cpu.instruction_cycle;
+    } break;
+    case 4: {
+      // Push status to stack - set B flag
+      cpu.state.status.break_command = 1;
+      cpu.state.status.unused = 1;
+      cpu.PushStack(cpu.state.status.status);
+      cpu.state.status.interrupt_disable = 1;
+      ++cpu.instruction_cycle;
+    } break;
+    case 5: {
+      // Fetch low byte of interrupt vector
+      u8 low_byte = 0;
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0xFF, 0xFE, low_byte);
+      cpu.state.pc = CombineToU16(U16High(cpu.state.pc), low_byte);
+      ++cpu.instruction_cycle;
+    } break;
+    case 6: {
+      // Fetch high byte of interrupt vector
+      u8 high_byte = 0;
+      ISA_detail::ReadValueFromMem(cpu.mem_bus, 0xFF, 0xFF, high_byte);
+      cpu.state.pc = CombineToU16(high_byte, U16Low(cpu.state.pc));
       cpu.instruction_cycle = 0;
     } break;
     default:

@@ -11,6 +11,7 @@ class AbsoluteIndexedAddressingTest : public ::testing::TestWithParam<int> {
  protected:
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
     p_value = GetParam();
@@ -32,6 +33,7 @@ class LogicalOperationsAbsoluteIndexedTest
  protected:
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
     auto [a_value, b_value] = GetParam();
@@ -57,6 +59,7 @@ class ArithmeticOperationsAbsoluteIndexedTest
  protected:
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
     auto [a_value, b_value] = GetParam();
@@ -81,6 +84,7 @@ class CompareOperationsAbsoluteIndexedTest
  protected:
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
     auto [a_value, b_value] = GetParam();
@@ -106,9 +110,11 @@ class IncrementDecrementAbsoluteIndexedTest
  protected:
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
     QNes::CPU_Testing::SetX(cpu, 0);
+    QNes::CPU_Testing::SetY(cpu, 0);
     initial_value = GetParam();
   }
 

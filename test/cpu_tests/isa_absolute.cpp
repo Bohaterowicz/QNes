@@ -11,6 +11,7 @@ class AbsoluteAddressingTest : public ::testing::TestWithParam<int> {
  protected:
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
     p_value = GetParam();
@@ -32,6 +33,7 @@ class LogicalOperationsAbsoluteTest
  protected:
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
     auto [a_value, b_value] = GetParam();
@@ -56,6 +58,7 @@ class ArithmeticOperationsAbsoluteTest
  protected:
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
     auto [a_value, b_value] = GetParam();
@@ -80,6 +83,7 @@ class CompareOperationsAbsoluteTest
  protected:
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
     auto [a_value, b_value] = GetParam();
@@ -103,6 +107,7 @@ class IncrementDecrementAbsoluteTest : public ::testing::TestWithParam<int> {
  protected:
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
     initial_value = GetParam();
@@ -123,6 +128,7 @@ class AbsoluteBasicTest : public ::testing::Test {
  protected:
   void SetUp() override {
     memory.Clear();
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
   }

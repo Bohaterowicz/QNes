@@ -11,6 +11,7 @@ class RegisterTransferTest : public ::testing::TestWithParam<int> {
  protected:
   void SetUp() override {
     memory.Clear();  // Clear memory before each test
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
     p_value = GetParam();

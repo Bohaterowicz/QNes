@@ -11,6 +11,7 @@ class IndirectBasicTest : public ::testing::Test {
  protected:
   void SetUp() override {
     memory.Clear();
+    QNes::CPU_Testing::SetGlobalMode(cpu, QNes::CPU::GlobalMode::RUN);
     QNes::CPU_Testing::SetPC(cpu, 0);
     QNes::CPU_Testing::SetInstructionCycle(cpu, 0);
   }
