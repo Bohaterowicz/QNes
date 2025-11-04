@@ -26,6 +26,25 @@ add_executable(
   cpu_tests/reset.cpp
   cpu_tests/isa_register_transfer.cpp)
 
+# Klaus 6502 functional test - standalone executable
+add_executable(qnes_functional_test test_roms/cpu_functional_test.cpp)
+target_link_libraries(qnes_functional_test qnes_lib)
+
+# Copy ROM binary to build directory
+set(ROM_BINARY_SOURCE
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_roms/6502_functional_tests.bin")
+set(ROM_BINARY_DEST
+    "${CMAKE_BINARY_DIR}/bin/test_roms/6502_functional_tests.bin")
+
+# Create the destination directory and copy the file
+add_custom_command(
+  TARGET qnes_functional_test
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/bin/test_roms"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ROM_BINARY_SOURCE}"
+          "${ROM_BINARY_DEST}"
+  COMMENT "Copying 6502_functional_tests.bin to build directory")
+
 target_link_libraries(qnes_test qnes_lib GTest::gtest_main)
 
 include(GoogleTest)

@@ -12,7 +12,7 @@ class CPUResetTest : public ::testing::Test {
  protected:
   void SetUp() override {
     memory.Clear();
-    QNes::CPU_Testing::ZeroResetCycle(cpu);
+    QNes::CPU_Testing::ZeroInterruptCycle(cpu);
   }
 
   void TearDown() override {}

@@ -44,6 +44,8 @@ class CPU {
   enum class GlobalMode : u8 {
     RESET = 0,
     RUN,
+    NMI,
+    IRQ,
   };
 
   union StatusFlags {
@@ -74,12 +76,18 @@ class CPU {
   void Reset();
   void Step();
 
+  void SignalNMI() { nmi_pending = true; }
+  void SignalIRQ() { irq_pending = true; }
+
  private:
   GlobalMode glabal_mode = GlobalMode::RESET;
   State state{};
 
-  void ResetInternal();
-  u8 reset_cycle = 0;
+  void HandleReset();
+  void HandleNMI();
+  void HandleIRQ();
+
+  u8 interrupt_cycle = 0;
 
   void WriteStackValue(u8 value);
   u8 ReadStackValue();
@@ -97,6 +105,9 @@ class CPU {
   u8 ir = 0;  // Instruction Register (Opcode)
   bool page_crossed = false;
   u8 instruction_cycle = 0;
+
+  bool nmi_pending = false;
+  bool irq_pending = false;
 
   MemBus mem_bus;
 
@@ -119,7 +130,7 @@ struct CPU_Testing {
     }
   }
 
-  static void ZeroResetCycle(CPU &cpu) { cpu.reset_cycle = 0; }
+  static void ZeroInterruptCycle(CPU &cpu) { cpu.interrupt_cycle = 0; }
   static void SetPC(CPU &cpu, u16 pc) { cpu.state.pc = pc; }
   static void SetCarry(CPU &cpu, bool carry) { cpu.state.status.carry = carry; }
   static bool GetCarry(const CPU &cpu) { return cpu.state.status.carry; }

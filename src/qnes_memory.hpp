@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <memory>
+#include <span>
 
 #include "qnes_c.hpp"
 
@@ -8,7 +9,7 @@ namespace QNes {
 
 class Memory {
  public:
-  Memory(size_t size) : size(size), data(std::make_unique<u8[]>(size)){};
+  Memory(size_t size) : size(size), data(std::make_unique<u8[]>(size)) {};
   Memory(const Memory &) = delete;
   Memory &operator=(const Memory &) = delete;
   Memory(Memory &&) = delete;
@@ -19,6 +20,16 @@ class Memory {
   void Write(u16 address, u8 value) { data[address] = value; }
 
   void Clear() { std::ranges::fill(data.get(), data.get() + size, 0); }
+
+  void Initialize(std::span<const u8> data) {
+    std::ranges::copy(data, this->data.get());
+  }
+
+  void InitializeFrom(size_t offset, std::span<const u8> data) {
+    ASSERT(offset + data.size() <= size,
+           "Offset and data size exceed memory size");
+    std::ranges::copy(data, this->data.get() + offset);
+  }
 
  private:
   size_t size;
