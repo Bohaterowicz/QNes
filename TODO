@@ -1,0 +1,1 @@
+- Add option to randomly initialize memory (Configure the emulator so it provides a random system state and random RAM contents on power-up. )

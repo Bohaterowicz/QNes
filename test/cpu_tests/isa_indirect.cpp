@@ -1,12 +1,14 @@
 #include <gtest/gtest.h>
 
 #include "cpu_isa.hpp"
+#include "qnes_bus.hpp"
 #include "qnes_c.hpp"
 #include "qnes_cpu.hpp"
+#include "qnes_memory.hpp"
 
 class IndirectBasicTest : public ::testing::Test {
  public:
-  IndirectBasicTest() : memory(Kilobytes(64)), cpu(memory) {}
+  IndirectBasicTest() : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -19,6 +21,7 @@ class IndirectBasicTest : public ::testing::Test {
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 };
 

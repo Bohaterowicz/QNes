@@ -4,8 +4,11 @@
 #include <string>
 #include <vector>
 
+#include "qnes_bus.hpp"
 #include "qnes_c.hpp"
 #include "qnes_cpu.hpp"
+#include "qnes_memory.hpp"
+
 
 // Helper function to find the binary file in common locations
 std::string FindBinaryFile() {
@@ -81,7 +84,8 @@ int main() {
   memory.Write(0xFFFC, QNes::U16Low(test_start));
   memory.Write(0xFFFD, QNes::U16High(test_start));
 
-  QNes::CPU cpu(memory);
+  QNes::RAMBus bus(&memory);
+  QNes::CPU cpu(&bus);
 
   std::cout << "Initializing CPU...\n";
 

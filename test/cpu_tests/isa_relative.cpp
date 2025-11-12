@@ -1,12 +1,14 @@
 #include <gtest/gtest.h>
 
 #include "cpu_isa.hpp"
+#include "qnes_bus.hpp"
 #include "qnes_c.hpp"
 #include "qnes_cpu.hpp"
+#include "qnes_memory.hpp"
 
 class RelativeBranchTest : public ::testing::Test {
  public:
-  RelativeBranchTest() : memory(Kilobytes(64)), cpu(memory) {}
+  RelativeBranchTest() : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -17,6 +19,7 @@ class RelativeBranchTest : public ::testing::Test {
   }
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 };
 

@@ -1,12 +1,14 @@
 #include <gtest/gtest.h>
 
 #include "cpu_isa.hpp"
+#include "qnes_bus.hpp"
 #include "qnes_c.hpp"
 #include "qnes_cpu.hpp"
+#include "qnes_memory.hpp"
 
 class ZeroPageAddressingTest : public ::testing::TestWithParam<int> {
  public:
-  ZeroPageAddressingTest() : memory(Kilobytes(64)), cpu(memory) {}
+  ZeroPageAddressingTest() : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -20,6 +22,7 @@ class ZeroPageAddressingTest : public ::testing::TestWithParam<int> {
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int p_value = 0;
@@ -28,7 +31,8 @@ class ZeroPageAddressingTest : public ::testing::TestWithParam<int> {
 class LogicalOperationsZeroPageTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
-  LogicalOperationsZeroPageTest() : memory(Kilobytes(64)), cpu(memory) {}
+  LogicalOperationsZeroPageTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -44,6 +48,7 @@ class LogicalOperationsZeroPageTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -53,7 +58,8 @@ class LogicalOperationsZeroPageTest
 class ArithmeticOperationsZeroPageTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
-  ArithmeticOperationsZeroPageTest() : memory(Kilobytes(64)), cpu(memory) {}
+  ArithmeticOperationsZeroPageTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -69,6 +75,7 @@ class ArithmeticOperationsZeroPageTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -78,7 +85,8 @@ class ArithmeticOperationsZeroPageTest
 class CompareOperationsZeroPageTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
-  CompareOperationsZeroPageTest() : memory(Kilobytes(64)), cpu(memory) {}
+  CompareOperationsZeroPageTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -94,6 +102,7 @@ class CompareOperationsZeroPageTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -102,7 +111,8 @@ class CompareOperationsZeroPageTest
 
 class IncrementDecrementZeroPageTest : public ::testing::TestWithParam<int> {
  public:
-  IncrementDecrementZeroPageTest() : memory(Kilobytes(64)), cpu(memory) {}
+  IncrementDecrementZeroPageTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -116,6 +126,7 @@ class IncrementDecrementZeroPageTest : public ::testing::TestWithParam<int> {
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int initial_value = 0;
@@ -688,7 +699,7 @@ TEST_P(CompareOperationsZeroPageTest, CompareCMP) {
   EXPECT_EQ(cpu_state.a, a);
   EXPECT_EQ(cpu_state.status.zero, result == 0);
   EXPECT_EQ(cpu_state.status.negative, (result & 0x80) != 0);
-  EXPECT_EQ(cpu_state.status.carry, result >= 0);
+  EXPECT_EQ(cpu_state.status.carry, (a >= b) ? 1 : 0);
   EXPECT_EQ(cpu_state.pc, start_address + 2);  // PC should advance by 2
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu),
             0);  // Cycle should reset to 0
@@ -719,7 +730,7 @@ TEST_P(CompareOperationsZeroPageTest, CompareCPX) {
   EXPECT_EQ(cpu_state.x, a);
   EXPECT_EQ(cpu_state.status.zero, result == 0);
   EXPECT_EQ(cpu_state.status.negative, (result & 0x80) != 0);
-  EXPECT_EQ(cpu_state.status.carry, result >= 0);
+  EXPECT_EQ(cpu_state.status.carry, (a >= b) ? 1 : 0);
   EXPECT_EQ(cpu_state.pc, start_address + 2);  // PC should advance by 2
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu),
             0);  // Cycle should reset to 0
@@ -750,7 +761,7 @@ TEST_P(CompareOperationsZeroPageTest, CompareCPY) {
   EXPECT_EQ(cpu_state.y, a);
   EXPECT_EQ(cpu_state.status.zero, result == 0);
   EXPECT_EQ(cpu_state.status.negative, (result & 0x80) != 0);
-  EXPECT_EQ(cpu_state.status.carry, result >= 0);
+  EXPECT_EQ(cpu_state.status.carry, (a >= b) ? 1 : 0);
   EXPECT_EQ(cpu_state.pc, start_address + 2);  // PC should advance by 2
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu),
             0);  // Cycle should reset to 0

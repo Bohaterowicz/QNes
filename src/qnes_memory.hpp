@@ -31,9 +31,12 @@ class Memory {
     std::ranges::copy(data, this->data.get() + offset);
   }
 
+  [[nodiscard]] size_t GetSize() const { return size; }
+
  private:
   size_t size;
   std::unique_ptr<u8[]> data;
 };
 
+using MemoryPtr = std::unique_ptr<Memory>;
 }  // namespace QNes

@@ -1,12 +1,14 @@
 #include <gtest/gtest.h>
 
 #include "cpu_isa.hpp"
+#include "qnes_bus.hpp"
 #include "qnes_c.hpp"
 #include "qnes_cpu.hpp"
+#include "qnes_memory.hpp"
 
 class ImmediateAddressingTest : public ::testing::TestWithParam<int> {
  public:
-  ImmediateAddressingTest() : memory(Kilobytes(64)), cpu(memory) {}
+  ImmediateAddressingTest() : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -20,6 +22,7 @@ class ImmediateAddressingTest : public ::testing::TestWithParam<int> {
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int p_value = 0;
@@ -28,7 +31,8 @@ class ImmediateAddressingTest : public ::testing::TestWithParam<int> {
 class LogicalOperationsImmediateTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
-  LogicalOperationsImmediateTest() : memory(Kilobytes(64)), cpu(memory) {}
+  LogicalOperationsImmediateTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -44,6 +48,7 @@ class LogicalOperationsImmediateTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -53,7 +58,8 @@ class LogicalOperationsImmediateTest
 class ArithmeticOperationsImmediateTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
-  ArithmeticOperationsImmediateTest() : memory(Kilobytes(64)), cpu(memory) {}
+  ArithmeticOperationsImmediateTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -69,6 +75,7 @@ class ArithmeticOperationsImmediateTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -78,7 +85,8 @@ class ArithmeticOperationsImmediateTest
 class CompareOperationsImmediateTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
-  CompareOperationsImmediateTest() : memory(Kilobytes(64)), cpu(memory) {}
+  CompareOperationsImmediateTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -94,6 +102,7 @@ class CompareOperationsImmediateTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -492,7 +501,7 @@ TEST_P(CompareOperationsImmediateTest, CompareCMP) {
   EXPECT_EQ(cpu_state.a, a);
   EXPECT_EQ(cpu_state.status.zero, result == 0);
   EXPECT_EQ(cpu_state.status.negative, (result & 0x80) != 0);
-  EXPECT_EQ(cpu_state.status.carry, result >= 0);
+  EXPECT_EQ(cpu_state.status.carry, (a >= b) ? 1 : 0);
   EXPECT_EQ(cpu_state.pc, start_address + 2);  // PC should advance by 2
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu),
             0);  // Cycle should reset to 0
@@ -523,7 +532,7 @@ TEST_P(CompareOperationsImmediateTest, CompareCPX) {
   EXPECT_EQ(cpu_state.x, a);
   EXPECT_EQ(cpu_state.status.zero, result == 0);
   EXPECT_EQ(cpu_state.status.negative, (result & 0x80) != 0);
-  EXPECT_EQ(cpu_state.status.carry, result >= 0);
+  EXPECT_EQ(cpu_state.status.carry, (a >= b) ? 1 : 0);
   EXPECT_EQ(cpu_state.pc, start_address + 2);  // PC should advance by 2
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu),
             0);  // Cycle should reset to 0
@@ -554,7 +563,7 @@ TEST_P(CompareOperationsImmediateTest, CompareCPY) {
   EXPECT_EQ(cpu_state.y, a);
   EXPECT_EQ(cpu_state.status.zero, result == 0);
   EXPECT_EQ(cpu_state.status.negative, (result & 0x80) != 0);
-  EXPECT_EQ(cpu_state.status.carry, result >= 0);
+  EXPECT_EQ(cpu_state.status.carry, (a >= b) ? 1 : 0);
   EXPECT_EQ(cpu_state.pc, start_address + 2);  // PC should advance by 2
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu),
             0);  // Cycle should reset to 0

@@ -1,40 +1,15 @@
 #pragma once
 
-#include "qnes_bits.hpp"
 #include "qnes_c.hpp"
-#include "qnes_memory.hpp"
 
 namespace QNes {
 
 struct ISA_detail;
-
-class MemBus {
- public:
-  MemBus(Memory &memory) : memory(memory) {};
-  MemBus(const MemBus &) = delete;
-  MemBus &operator=(const MemBus &) = delete;
-  MemBus(MemBus &&) = delete;
-  MemBus &operator=(MemBus &&) = delete;
-  ~MemBus() = default;
-
-  void SetAddress(u8 high, u8 low) { addr = CombineToU16(high, low); }
-
-  u8 Read() { return memory.Read(addr); }
-  void Write(u8 value) { memory.Write(addr, value); }
-
- private:
-  u8 adl = 0, adh = 0;  // Address Latch Low/High
-  u8 op_latch = 0;      // Operand Latch
-  u16 addr = 0;         // Effective Address
-  Memory &memory;
-
-  friend struct ISA;
-  friend struct ISA_detail;
-};
+class Bus;
 
 class CPU {
  public:
-  CPU(Memory &memory) : mem_bus(memory) {};
+  CPU(Bus *bus) : bus(bus) {};
   CPU(const CPU &) = delete;
   CPU &operator=(const CPU &) = delete;
   CPU(CPU &&) = delete;
@@ -109,12 +84,14 @@ class CPU {
   bool nmi_pending = false;
   bool irq_pending = false;
 
-  MemBus mem_bus;
+  Bus *bus = nullptr;
 
   friend struct ISA;
   friend struct ISA_detail;
   friend struct CPU_Testing;
 };
+
+using CPUPtr = std::unique_ptr<CPU>;
 
 struct CPU_Testing {
   static CPU::GlobalMode GetGlobalMode(const CPU &cpu) {
@@ -152,10 +129,7 @@ struct CPU_Testing {
 
   static void PushStack(CPU &cpu, u8 value) { cpu.PushStack(value); }
   static u8 PopStack(CPU &cpu) { return cpu.PopStack(); }
-  static u8 ReadStackValue(CPU &cpu, u8 sp) {
-    cpu.mem_bus.SetAddress(0x01, sp);
-    return cpu.mem_bus.Read();
-  }
+  static u8 ReadStackValue(CPU &cpu, u8 sp);
 };
 
 }  // namespace QNes

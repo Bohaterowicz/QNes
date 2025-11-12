@@ -1,17 +1,18 @@
 #include "qnes_cpu.hpp"
 
 #include "cpu_isa.hpp"
+#include "qnes_bus.hpp"
 
 namespace QNes {
 
 void CPU::WriteStackValue(u8 value) {
-  mem_bus.SetAddress(0x01, state.sp);
-  mem_bus.Write(value);
+  bus->SetAddress(0x01, state.sp);
+  bus->Write(value);
 }
 
 u8 CPU::ReadStackValue() {
-  mem_bus.SetAddress(0x01, state.sp);
-  return mem_bus.Read();
+  bus->SetAddress(0x01, state.sp);
+  return bus->Read();
 }
 
 void CPU::Reset() { glabal_mode = GlobalMode::RESET; }
@@ -49,8 +50,8 @@ void CPU::Step() {
         }
 
         // No interrupt, fetch next opcode
-        mem_bus.SetAddress(U16High(state.pc), U16Low(state.pc));
-        ir = mem_bus.Read();
+        bus->SetAddress(U16High(state.pc), U16Low(state.pc));
+        ir = bus->Read();
         ++state.pc;
         ++instruction_cycle;
       } else {
@@ -86,14 +87,14 @@ void CPU::HandleReset() {
     } break;
     case 2: {
       // fetch low byte of reset vector
-      mem_bus.SetAddress(0xFF, 0xFC);
-      pc_adl = mem_bus.Read();
+      bus->SetAddress(0xFF, 0xFC);
+      pc_adl = bus->Read();
       ++interrupt_cycle;
     } break;
     case 3: {
       // fetch high byte of reset vector
-      mem_bus.SetAddress(0xFF, 0xFD);
-      pc_adh = mem_bus.Read();
+      bus->SetAddress(0xFF, 0xFD);
+      pc_adh = bus->Read();
       ++interrupt_cycle;
     } break;
     case 4: {
@@ -111,8 +112,8 @@ void CPU::HandleNMI() {
   switch (interrupt_cycle) {
     case 0: {
       // Dummy read
-      mem_bus.SetAddress(U16High(state.pc), U16Low(state.pc));
-      (void)mem_bus.Read();  // Dummy read for cycle accuracy
+      bus->SetAddress(U16High(state.pc), U16Low(state.pc));
+      (void)bus->Read();  // Dummy read for cycle accuracy
       ++interrupt_cycle;
     } break;
     case 1: {
@@ -138,15 +139,15 @@ void CPU::HandleNMI() {
     } break;
     case 5: {
       // Fetch low byte of NMI vector from 0xFFFA
-      mem_bus.SetAddress(0xFF, 0xFA);
-      u8 low_byte = mem_bus.Read();
+      bus->SetAddress(0xFF, 0xFA);
+      u8 low_byte = bus->Read();
       state.pc = CombineToU16(U16High(state.pc), low_byte);
       ++interrupt_cycle;
     } break;
     case 6: {
       // Fetch high byte of NMI vector from 0xFFFB
-      mem_bus.SetAddress(0xFF, 0xFB);
-      u8 high_byte = mem_bus.Read();
+      bus->SetAddress(0xFF, 0xFB);
+      u8 high_byte = bus->Read();
       state.pc = CombineToU16(high_byte, U16Low(state.pc));
       interrupt_cycle = 0;
       glabal_mode = GlobalMode::RUN;
@@ -160,8 +161,8 @@ void CPU::HandleIRQ() {
   switch (interrupt_cycle) {
     case 0: {
       // Dummy read
-      mem_bus.SetAddress(U16High(state.pc), U16Low(state.pc));
-      (void)mem_bus.Read();  // Dummy read for cycle accuracy
+      bus->SetAddress(U16High(state.pc), U16Low(state.pc));
+      (void)bus->Read();  // Dummy read for cycle accuracy
       ++interrupt_cycle;
     } break;
     case 1: {
@@ -187,15 +188,15 @@ void CPU::HandleIRQ() {
     } break;
     case 5: {
       // Fetch low byte of IRQ vector from 0xFFFE
-      mem_bus.SetAddress(0xFF, 0xFE);
-      u8 low_byte = mem_bus.Read();
+      bus->SetAddress(0xFF, 0xFE);
+      u8 low_byte = bus->Read();
       state.pc = CombineToU16(U16High(state.pc), low_byte);
       ++interrupt_cycle;
     } break;
     case 6: {
       // Fetch high byte of IRQ vector from 0xFFFF
-      mem_bus.SetAddress(0xFF, 0xFF);
-      u8 high_byte = mem_bus.Read();
+      bus->SetAddress(0xFF, 0xFF);
+      u8 high_byte = bus->Read();
       state.pc = CombineToU16(high_byte, U16Low(state.pc));
       glabal_mode = GlobalMode::RUN;
       interrupt_cycle = 0;
@@ -203,6 +204,11 @@ void CPU::HandleIRQ() {
     default:
       ASSERT(false, "Invalid IRQ cycle");
   }
+}
+
+u8 CPU_Testing::ReadStackValue(CPU &cpu, u8 sp) {
+  cpu.bus->SetAddress(0x01, sp);
+  return cpu.bus->Read();
 }
 
 }  // namespace QNes

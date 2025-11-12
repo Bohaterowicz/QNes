@@ -1,12 +1,15 @@
 #include <gtest/gtest.h>
 
 #include "cpu_isa.hpp"
+#include "qnes_bus.hpp"
 #include "qnes_c.hpp"
 #include "qnes_cpu.hpp"
+#include "qnes_memory.hpp"
 
 class ZeroPageIndexedAddressingTest : public ::testing::TestWithParam<int> {
  public:
-  ZeroPageIndexedAddressingTest() : memory(Kilobytes(64)), cpu(memory) {}
+  ZeroPageIndexedAddressingTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -20,6 +23,7 @@ class ZeroPageIndexedAddressingTest : public ::testing::TestWithParam<int> {
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int p_value = 0;
@@ -28,7 +32,8 @@ class ZeroPageIndexedAddressingTest : public ::testing::TestWithParam<int> {
 class LogicalOperationsZeroPageIndexedTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
-  LogicalOperationsZeroPageIndexedTest() : memory(Kilobytes(64)), cpu(memory) {}
+  LogicalOperationsZeroPageIndexedTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -44,6 +49,7 @@ class LogicalOperationsZeroPageIndexedTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -54,7 +60,7 @@ class ArithmeticOperationsZeroPageIndexedTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
   ArithmeticOperationsZeroPageIndexedTest()
-      : memory(Kilobytes(64)), cpu(memory) {}
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -70,6 +76,7 @@ class ArithmeticOperationsZeroPageIndexedTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -79,7 +86,8 @@ class ArithmeticOperationsZeroPageIndexedTest
 class CompareOperationsZeroPageIndexedTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
-  CompareOperationsZeroPageIndexedTest() : memory(Kilobytes(64)), cpu(memory) {}
+  CompareOperationsZeroPageIndexedTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -95,6 +103,7 @@ class CompareOperationsZeroPageIndexedTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -105,7 +114,7 @@ class IncrementDecrementZeroPageIndexedTest
     : public ::testing::TestWithParam<int> {
  public:
   IncrementDecrementZeroPageIndexedTest()
-      : memory(Kilobytes(64)), cpu(memory) {}
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -120,6 +129,7 @@ class IncrementDecrementZeroPageIndexedTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int initial_value = 0;
@@ -1219,7 +1229,7 @@ TEST_P(CompareOperationsZeroPageIndexedTest, CompareCMP) {
   EXPECT_EQ(cpu_state.a, a);
   EXPECT_EQ(cpu_state.status.zero, result == 0);
   EXPECT_EQ(cpu_state.status.negative, (result & 0x80) != 0);
-  EXPECT_EQ(cpu_state.status.carry, result >= 0);
+  EXPECT_EQ(cpu_state.status.carry, (a >= b) ? 1 : 0);
   EXPECT_EQ(cpu_state.pc, start_address + 2);  // PC should advance by 2
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu),
             0);  // Cycle should reset to 0

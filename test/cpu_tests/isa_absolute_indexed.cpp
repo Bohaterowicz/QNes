@@ -1,12 +1,15 @@
 #include <gtest/gtest.h>
 
 #include "cpu_isa.hpp"
+#include "qnes_bus.hpp"
 #include "qnes_c.hpp"
 #include "qnes_cpu.hpp"
+#include "qnes_memory.hpp"
 
 class AbsoluteIndexedAddressingTest : public ::testing::TestWithParam<int> {
  public:
-  AbsoluteIndexedAddressingTest() : memory(Kilobytes(64)), cpu(memory) {}
+  AbsoluteIndexedAddressingTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -20,6 +23,7 @@ class AbsoluteIndexedAddressingTest : public ::testing::TestWithParam<int> {
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int p_value = 0;
@@ -28,7 +32,8 @@ class AbsoluteIndexedAddressingTest : public ::testing::TestWithParam<int> {
 class LogicalOperationsAbsoluteIndexedTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
-  LogicalOperationsAbsoluteIndexedTest() : memory(Kilobytes(64)), cpu(memory) {}
+  LogicalOperationsAbsoluteIndexedTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -44,6 +49,7 @@ class LogicalOperationsAbsoluteIndexedTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -54,7 +60,7 @@ class ArithmeticOperationsAbsoluteIndexedTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
   ArithmeticOperationsAbsoluteIndexedTest()
-      : memory(Kilobytes(64)), cpu(memory) {}
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -70,6 +76,7 @@ class ArithmeticOperationsAbsoluteIndexedTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -79,7 +86,8 @@ class ArithmeticOperationsAbsoluteIndexedTest
 class CompareOperationsAbsoluteIndexedTest
     : public ::testing::TestWithParam<std::pair<int, int>> {
  public:
-  CompareOperationsAbsoluteIndexedTest() : memory(Kilobytes(64)), cpu(memory) {}
+  CompareOperationsAbsoluteIndexedTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -95,6 +103,7 @@ class CompareOperationsAbsoluteIndexedTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int a_value = 0;
@@ -105,7 +114,7 @@ class IncrementDecrementAbsoluteIndexedTest
     : public ::testing::TestWithParam<int> {
  public:
   IncrementDecrementAbsoluteIndexedTest()
-      : memory(Kilobytes(64)), cpu(memory) {}
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -121,6 +130,7 @@ class IncrementDecrementAbsoluteIndexedTest
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int initial_value = 0;
@@ -2280,7 +2290,7 @@ TEST_P(CompareOperationsAbsoluteIndexedTest, CompareCMP_X_NO_WRAP) {
   EXPECT_EQ(cpu_state.a, a);
   EXPECT_EQ(cpu_state.status.zero, result == 0);
   EXPECT_EQ(cpu_state.status.negative, (result & 0x80) != 0);
-  EXPECT_EQ(cpu_state.status.carry, result >= 0);
+  EXPECT_EQ(cpu_state.status.carry, (a >= b) ? 1 : 0);
   EXPECT_EQ(cpu_state.pc, start_address + 3);  // PC should advance by 3
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu),
             0);  // Cycle should reset to 0
@@ -2324,7 +2334,7 @@ TEST_P(CompareOperationsAbsoluteIndexedTest, CompareCMP_X_WRAP) {
   EXPECT_EQ(cpu_state.a, a);
   EXPECT_EQ(cpu_state.status.zero, result == 0);
   EXPECT_EQ(cpu_state.status.negative, (result & 0x80) != 0);
-  EXPECT_EQ(cpu_state.status.carry, result >= 0);
+  EXPECT_EQ(cpu_state.status.carry, (a >= b) ? 1 : 0);
   EXPECT_EQ(cpu_state.pc, start_address + 3);  // PC should advance by 3
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu),
             0);  // Cycle should reset to 0
@@ -2368,7 +2378,7 @@ TEST_P(CompareOperationsAbsoluteIndexedTest, CompareCMP_Y_NO_WRAP) {
   EXPECT_EQ(cpu_state.a, a);
   EXPECT_EQ(cpu_state.status.zero, result == 0);
   EXPECT_EQ(cpu_state.status.negative, (result & 0x80) != 0);
-  EXPECT_EQ(cpu_state.status.carry, result >= 0);
+  EXPECT_EQ(cpu_state.status.carry, (a >= b) ? 1 : 0);
   EXPECT_EQ(cpu_state.pc, start_address + 3);  // PC should advance by 3
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu),
             0);  // Cycle should reset to 0
@@ -2412,7 +2422,7 @@ TEST_P(CompareOperationsAbsoluteIndexedTest, CompareCMP_Y_WRAP) {
   EXPECT_EQ(cpu_state.a, a);
   EXPECT_EQ(cpu_state.status.zero, result == 0);
   EXPECT_EQ(cpu_state.status.negative, (result & 0x80) != 0);
-  EXPECT_EQ(cpu_state.status.carry, result >= 0);
+  EXPECT_EQ(cpu_state.status.carry, (a >= b) ? 1 : 0);
   EXPECT_EQ(cpu_state.pc, start_address + 3);  // PC should advance by 3
   EXPECT_EQ(QNes::CPU_Testing::GetInstructionCycle(cpu),
             0);  // Cycle should reset to 0

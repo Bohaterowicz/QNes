@@ -1,12 +1,13 @@
 #include <gtest/gtest.h>
 
 #include "cpu_isa.hpp"
+#include "qnes_bus.hpp"
 #include "qnes_c.hpp"
 #include "qnes_cpu.hpp"
 
 class CPUISAStackTest : public ::testing::Test {
  public:
-  CPUISAStackTest() : memory(Kilobytes(64)), cpu(memory) {}
+  CPUISAStackTest() : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -20,6 +21,7 @@ class CPUISAStackTest : public ::testing::Test {
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 };
 

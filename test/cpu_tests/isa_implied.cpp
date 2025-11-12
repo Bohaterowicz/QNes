@@ -3,12 +3,16 @@
 #include <vector>
 
 #include "cpu_isa.hpp"
+#include "qnes_bus.hpp"
 #include "qnes_c.hpp"
 #include "qnes_cpu.hpp"
+#include "qnes_memory.hpp"
+
 
 class IncrementDecrementImpliedTest : public ::testing::TestWithParam<int> {
  public:
-  IncrementDecrementImpliedTest() : memory(Kilobytes(64)), cpu(memory) {}
+  IncrementDecrementImpliedTest()
+      : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -22,6 +26,7 @@ class IncrementDecrementImpliedTest : public ::testing::TestWithParam<int> {
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 
   int initial_value = 0;
@@ -30,7 +35,7 @@ class IncrementDecrementImpliedTest : public ::testing::TestWithParam<int> {
 // Test class for flag manipulation instructions
 class FlagManipulationTest : public ::testing::Test {
  public:
-  FlagManipulationTest() : memory(Kilobytes(64)), cpu(memory) {}
+  FlagManipulationTest() : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -43,13 +48,14 @@ class FlagManipulationTest : public ::testing::Test {
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 };
 
 // Test class for NOP, RTI, and BRK instructions
 class SpecialInstructionsTest : public ::testing::Test {
  public:
-  SpecialInstructionsTest() : memory(Kilobytes(64)), cpu(memory) {}
+  SpecialInstructionsTest() : memory(Kilobytes(64)), bus(&memory), cpu(&bus) {}
 
  protected:
   void SetUp() override {
@@ -62,6 +68,7 @@ class SpecialInstructionsTest : public ::testing::Test {
   void TearDown() override {}
 
   QNes::Memory memory;
+  QNes::RAMBus bus;
   QNes::CPU cpu;
 };
 
