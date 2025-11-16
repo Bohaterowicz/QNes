@@ -1,5 +1,11 @@
-set(QNES_SOURCES qnes_cpu.cpp qnes_emu.cpp cpu_isa.cpp qnes_bus.cpp
-                 qnes_ppu.cpp)
+set(QNES_SOURCES
+    qnes_cpu.cpp
+    qnes_emu.cpp
+    cpu_isa.cpp
+    qnes_bus.cpp
+    qnes_ppu.cpp
+    qnes_cartridge.cpp
+    qnes_mapper.cpp)
 
 add_library(qnes_lib STATIC ${QNES_SOURCES})
 

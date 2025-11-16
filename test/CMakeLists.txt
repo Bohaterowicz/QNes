@@ -33,6 +33,10 @@ add_executable(
 add_executable(qnes_functional_test test_roms/cpu_functional_test.cpp)
 target_link_libraries(qnes_functional_test qnes_lib)
 
+# Color test runner - standalone executable
+add_executable(qnes_color_test_runner test_roms/qnes_color_test_runner.cpp)
+target_link_libraries(qnes_color_test_runner qnes_lib)
+
 # Copy ROM binary to build directory
 set(ROM_BINARY_SOURCE
     "${CMAKE_CURRENT_SOURCE_DIR}/test_roms/6502_functional_tests.bin")
@@ -47,6 +51,20 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ROM_BINARY_SOURCE}"
           "${ROM_BINARY_DEST}"
   COMMENT "Copying 6502_functional_tests.bin to build directory")
+
+# Copy color test ROM to build directory
+set(COLOR_TEST_ROM_SOURCE
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_roms/color_test.nes")
+set(COLOR_TEST_ROM_DEST "${CMAKE_BINARY_DIR}/bin/test_roms/color_test.nes")
+
+# Create the destination directory and copy the file
+add_custom_command(
+  TARGET qnes_color_test_runner
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/bin/test_roms"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${COLOR_TEST_ROM_SOURCE}"
+          "${COLOR_TEST_ROM_DEST}"
+  COMMENT "Copying color_test.nes to build directory")
 
 target_link_libraries(qnes_test qnes_lib GTest::gtest_main)
 

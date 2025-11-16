@@ -40,3 +40,4 @@ Diagnostics:
       - cppcoreguidelines-pro-type-union-access
       - performance-no-int-to-ptr
       - cppcoreguidelines-non-private-member-variables-in-classes
+      - cppcoreguidelines-pro-type-static-cast-downcast

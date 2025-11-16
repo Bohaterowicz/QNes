@@ -2,6 +2,7 @@
 
 #include "qnes_bits.hpp"
 #include "qnes_c.hpp"
+#include "qnes_cartridge.hpp"
 #include "qnes_cpu.hpp"
 #include "qnes_memory.hpp"
 #include "qnes_ppu.hpp"
@@ -67,14 +68,15 @@ class RAMBus : public Bus {
 };
 
 /**
- * @brief NES Bus
- * @details The NES Bus is used to read and write to the NES memory mapped
- * devices. It performs correct mapping/mirroring of the memory spaces as
+ * @brief NES Bus - CPU
+ * @details The NES Bus is used by CPU to read and write to the NES memory
+ * mapped devices. It performs correct mapping/mirroring of the memory spaces as
  * expected by the NES hardware.
  */
 class NESBus : public Bus {
  public:
-  NESBus(Memory *memory, PPU *ppu) : memory(memory), ppu(ppu) {};
+  NESBus(Memory *memory, PPU *ppu, Cartridge *cartridge)
+      : memory(memory), ppu(ppu), cartridge(cartridge) {};
   NESBus(const NESBus &) = delete;
   NESBus &operator=(const NESBus &) = delete;
   NESBus(NESBus &&) = delete;
@@ -84,14 +86,40 @@ class NESBus : public Bus {
   [[nodiscard]] u8 Read() override;
   void Write(u8 value) override;
 
+  void SetCartridge(Cartridge *cartridge) { this->cartridge = cartridge; }
+
  private:
-  Memory *memory = nullptr;  // RAM
-  PPU *ppu = nullptr;        // PPU
+  Memory *memory = nullptr;        // RAM
+  PPU *ppu = nullptr;              // PPU
+  Cartridge *cartridge = nullptr;  // Cartridge
 };
 
+class VRAM_Only_PPUBus : public Bus {
+ public:
+  VRAM_Only_PPUBus(Memory *vram) : vram(vram) {};
+  VRAM_Only_PPUBus(const VRAM_Only_PPUBus &) = delete;
+  VRAM_Only_PPUBus &operator=(const VRAM_Only_PPUBus &) = delete;
+  VRAM_Only_PPUBus(VRAM_Only_PPUBus &&) = delete;
+  VRAM_Only_PPUBus &operator=(VRAM_Only_PPUBus &&) = delete;
+  ~VRAM_Only_PPUBus() override = default;
+
+  [[nodiscard]] u8 Read() override;
+  void Write(u8 value) override;
+
+ private:
+  Memory *vram = nullptr;
+};
+
+/**
+ * @brief PPU Bus - PPU
+ * @details The NES Bus is used by PPU to read and write to the NES memory
+ * mapped devices. It performs correct mapping/mirroring of the memory spaces as
+ * expected by the NES hardware.
+ */
 class PPUBus : public Bus {
  public:
-  PPUBus(Memory *vram) : vram(vram) {};
+  PPUBus(Memory *vram, Cartridge *cartridge)
+      : vram(vram), cartridge(cartridge) {};
   PPUBus(const PPUBus &) = delete;
   PPUBus &operator=(const PPUBus &) = delete;
   PPUBus(PPUBus &&) = delete;
@@ -101,8 +129,11 @@ class PPUBus : public Bus {
   [[nodiscard]] u8 Read() override;
   void Write(u8 value) override;
 
+  void SetCartridge(Cartridge *cartridge) { this->cartridge = cartridge; }
+
  private:
   Memory *vram = nullptr;
+  Cartridge *cartridge = nullptr;  // Cartridge
 };
 
 }  // namespace QNes

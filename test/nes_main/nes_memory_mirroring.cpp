@@ -14,7 +14,7 @@ namespace {
 class NESBusMirroringTest : public ::testing::Test {
  protected:
   // NOTE: PPU is not used in this test
-  NESBusMirroringTest() : memory(Kilobytes(2)), bus(&memory, nullptr) {
+  NESBusMirroringTest() : memory(Kilobytes(2)), bus(&memory, nullptr, nullptr) {
     memory.Clear();
   }
 

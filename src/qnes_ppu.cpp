@@ -29,8 +29,8 @@ void PPU::UpdateRenderingToggle() {
   if (rendering_toggle_scheduled) {
     if (rendering_toggle_cycles_to_wait == 0) {
       rendering_toggle_scheduled = false;
-      registers.ppu_mask = (registers.ppu_mask & ~PPU_RENDERING_MASK) |
-                           (new_rendering_flags & PPU_RENDERING_MASK);
+      ppu_mask = (ppu_mask & ~PPU_RENDERING_MASK) |
+                 (new_rendering_flags & PPU_RENDERING_MASK);
       this->new_rendering_flags = 0;
     } else {
       --rendering_toggle_cycles_to_wait;
@@ -38,7 +38,17 @@ void PPU::UpdateRenderingToggle() {
   }
 }
 
-void PPU::Step() { UpdateRenderingToggle(); }
+void PPU::Step() {
+  UpdateRenderingToggle();
+  ++scanline_cycle;
+  if (scanline_cycle > 340) {
+    ++scanline_idx;
+    scanline_cycle = 0;
+    if (scanline_idx > 261) {
+      scanline_idx = 0;
+    }
+  }
+}
 
 void PPU::ScheduleRenderingToggle(u8 new_rendering_flags, int cycles_to_wait) {
   rendering_toggle_scheduled = true;
@@ -46,12 +56,12 @@ void PPU::ScheduleRenderingToggle(u8 new_rendering_flags, int cycles_to_wait) {
   this->new_rendering_flags = new_rendering_flags;
 }
 
-u8 PPU::BusReadMappedRegister(u8 address) {
+u8 PPU::Read(u8 address) {
   switch (address) {
     case 2:
       return ReadPPUSTATUS();
     case 4:
-      return registers.oam_data;
+      return ReadOAMDATA();
     case 7:
       return ReadPPUDATA();
     default:
@@ -60,7 +70,7 @@ u8 PPU::BusReadMappedRegister(u8 address) {
   }
 }
 
-void PPU::BusWriteMappedRegister(u8 address, u8 value) {
+void PPU::Write(u8 address, u8 value) {
   switch (address) {
     case 0:
       WritePPUCONTROL(value);
@@ -69,10 +79,10 @@ void PPU::BusWriteMappedRegister(u8 address, u8 value) {
       WritePPUMASK(value);
       break;
     case 3:
-      registers.oam_address = value;
+      WriteOAMADDRESS(value);
       break;
     case 4:
-      registers.oam_data = value;
+      WriteOAMDATA(value);
       break;
     case 5:
       WritePPUSCROLL(value);
@@ -90,8 +100,7 @@ void PPU::BusWriteMappedRegister(u8 address, u8 value) {
 }
 
 bool PPU::IsRenderingEnabled() const {
-  return (registers.ppu_mask &
-          (PPU_MASK_SHOW_BACKGROUND | PPU_MASK_SHOW_SPRITES)) != 0;
+  return (ppu_mask & (PPU_MASK_SHOW_BACKGROUND | PPU_MASK_SHOW_SPRITES)) != 0;
 }
 
 bool PPU::IsRenderingActive() const {
@@ -101,10 +110,10 @@ bool PPU::IsRenderingActive() const {
 u8 PPU::ReadPPUSTATUS() {
   // reading PPUSTATUS has the side effect of resetting the write toggle
   internal_registers.write_toggle = 0;
-  auto value = registers.ppu_status;
+  auto value = ppu_status;
   // another effect of reading PPUSTATUS is that it clears the vblank started
   // flag (bit 7) - but returns its value before clearing
-  registers.ppu_status &= ~PPU_STATUS_VBLANK_STARTED_MASK;
+  ppu_status &= ~PPU_STATUS_VBLANK_STARTED_MASK;
   return value;
 }
 
@@ -115,10 +124,7 @@ u8 PPU::ReadPPUDATA() {
   // the current address read (buffered read)
   u16 address = internal_registers.current_vram_address & PPU_16_BIT_MASK;
   u8 result = 0;
-  if (address > 0x3F00) {
-    // name/pattern table read
-    result = ppu_data_buffer;
-  } else {
+  if (address >= 0x3F00) {
     // internal palette read (maybe this should go trough bus, but then the bus
     // would need to have pointer to ppu, while the ppu needs pointer to bus,
     // which makes it a bit akward)
@@ -127,6 +133,10 @@ u8 PPU::ReadPPUDATA() {
     result = palette_ram[address & 0x1F];
     // even if this was a palette read we still need to read from the bus
     address -= 0x1000;
+
+  } else {
+    // name/pattern table read
+    result = ppu_data_buffer;
   }
 
   ppu_bus->SetAddress(address);
@@ -137,8 +147,10 @@ u8 PPU::ReadPPUDATA() {
   return result;
 }
 
+u8 PPU::ReadOAMDATA() { return oam_data[oam_address]; }
+
 void PPU::WritePPUCONTROL(u8 value) {
-  registers.ppu_control = value;
+  ppu_control = value;
   internal_registers.temp_vram_address =
       (internal_registers.temp_vram_address &
        ~TEMP_VRAM_NAME_TABLE_SELECTMASK) |
@@ -161,21 +173,17 @@ void PPU::WritePPUMASK(u8 value) {
     // Toggling rendering takes effect approximately 3-4 dots after the write.
     // This delay is required by Battletoads to avoid a crash.
     // Thus we schedule a the rendering toggle to happen in 3 cycles
-    ScheduleRenderingToggle(new_rendering_flags, 4);
+    ScheduleRenderingToggle(new_rendering_flags, 3);
     // remove rendering flags from the value - they will be set by the scheduled
     // rendering toggle
     value &= ~PPU_RENDERING_MASK;
-    registers.ppu_mask = value;
-  } else {
-    // no rendering toggle needed - just set the new value
-    registers.ppu_mask = value;
   }
+  ppu_mask = value;
 }
 
 void PPU::WritePPUSCROLL(u8 value) {
   if (internal_registers.write_toggle) {
     // second write
-    registers.ppu_scroll[1] = value;
     internal_registers.temp_vram_address =
         (internal_registers.temp_vram_address & ~TEMP_VRAM_COARSE_Y_MASK) |
         (value & TEMP_VRAM_COARSE_Y_MASK);
@@ -184,7 +192,6 @@ void PPU::WritePPUSCROLL(u8 value) {
         (value & FINE_Y_SCROLL_MASK);
   } else {
     // first write
-    registers.ppu_scroll[0] = value;
     internal_registers.temp_vram_address =
         (internal_registers.temp_vram_address & ~TEMP_VRAM_COARSE_X_MASK) |
         (value & TEMP_VRAM_COARSE_X_MASK);
@@ -196,7 +203,6 @@ void PPU::WritePPUSCROLL(u8 value) {
 void PPU::WritePPUADDR(u8 value) {
   if (internal_registers.write_toggle) {
     // second write
-    registers.ppu_address[1] = value;
     internal_registers.temp_vram_address =
         (internal_registers.temp_vram_address & ~TEMP_VRAM_LOW_ADDRESS_MASK) |
         (value & TEMP_VRAM_LOW_ADDRESS_MASK);
@@ -209,7 +215,6 @@ void PPU::WritePPUADDR(u8 value) {
     }
   } else {
     // first write
-    registers.ppu_address[0] = value;
     internal_registers.temp_vram_address =
         (internal_registers.temp_vram_address & ~TEMP_VRAM_HIGH_ADDRESS_MASK) |
         (value & TEMP_VRAM_HIGH_ADDRESS_MASK);
@@ -221,7 +226,7 @@ void PPU::WritePPUADDR(u8 value) {
 
 void PPU::WritePPUDATA(u8 value) {
   u16 address = internal_registers.current_vram_address & PPU_16_BIT_MASK;
-  if (address > 0x3F00) {
+  if (address >= 0x3F00) {
     // internal palette write
     palette_ram[address & 0x1F] = value;
   } else {
@@ -230,6 +235,19 @@ void PPU::WritePPUDATA(u8 value) {
     ppu_bus->Write(value);
   }
   IncrementVRAMAddress();
+}
+
+void PPU::WriteOAMADDRESS(u8 value) { oam_address = value; }
+
+void PPU::WriteOAMDATA(u8 value) {
+  // According to NESDEV (https://www.nesdev.org/wiki/PPU_registers#OAMDATA)
+  // writes during rendering do not affect OAM data, and also perform a glitchy
+  // increment - for the sake of emulation we will ignore writes to oam data
+  // during rendering for now
+  if (!IsRenderingActive()) {
+    oam_data[oam_address] = value;
+    ++oam_address;
+  }
 }
 
 void PPU::IncrementVRAMAddress() {
@@ -242,9 +260,7 @@ void PPU::IncrementVRAMAddress() {
     // rendering not active (no pixel generation is happening) - normal vram
     // increment
     internal_registers.current_vram_address +=
-        ((registers.ppu_control & PPU_CTRL_VRAM_ADDRESS_INCREMENT_MASK) != 0)
-            ? 32
-            : 1;
+        ((ppu_control & PPU_CTRL_VRAM_ADDRESS_INCREMENT_MASK) != 0) ? 32 : 1;
   }
 }
 

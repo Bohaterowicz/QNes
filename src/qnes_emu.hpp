@@ -13,9 +13,9 @@ class Emulator {
   Emulator()
       : memory(std::make_unique<Memory>(Kilobytes(2))),
         vram(std::make_unique<Memory>(Kilobytes(2))),
-        ppu_bus(std::make_unique<PPUBus>(vram.get())),
+        ppu_bus(std::make_unique<PPUBus>(vram.get(), nullptr)),
         ppu(std::make_unique<PPU>(ppu_bus.get(), nullptr)),
-        bus(std::make_unique<NESBus>(memory.get(), ppu.get())),
+        bus(std::make_unique<NESBus>(memory.get(), ppu.get(), nullptr)),
         cpu(std::make_unique<CPU>(bus.get())) {};
   Emulator(const Emulator &) = delete;
   Emulator &operator=(const Emulator &) = delete;
@@ -25,7 +25,16 @@ class Emulator {
 
   void Run();
 
+  void SetCartridge(Cartridge *cartridge) {
+    this->cartridge = cartridge;
+    auto *ppu_bus_ptr = static_cast<PPUBus *>(ppu_bus.get());
+    auto *cpu_bus_ptr = static_cast<NESBus *>(bus.get());
+    ppu_bus_ptr->SetCartridge(cartridge);
+    cpu_bus_ptr->SetCartridge(cartridge);
+  }
+
  private:
+  Cartridge *cartridge;
   MemoryPtr memory;
   MemoryPtr vram;
   BusPtr ppu_bus;
