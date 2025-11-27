@@ -18,7 +18,10 @@ class PPURegistersTest : public ::testing::Test {
         vram_memory(Kilobytes(64)),
         ppu_bus(&vram_memory),  // VRAM only PPU bus
         ppu(&ppu_bus, nullptr),
-        bus(&cpu_memory, &ppu, nullptr) {
+        bus(&cpu_memory, &dma_ctrl, &ppu, nullptr),
+        cpu(&bus) {
+    bus.SetCPU(&cpu);
+    dma_ctrl.SetBus(&bus);
     ResetState();
   }
 
@@ -46,9 +49,11 @@ class PPURegistersTest : public ::testing::Test {
 
   Memory cpu_memory;
   Memory vram_memory;
+  DMAController dma_ctrl;
   VRAM_Only_PPUBus ppu_bus;
   PPU ppu;
   NESBus bus;
+  CPU cpu;
 };
 
 TEST_F(PPURegistersTest,

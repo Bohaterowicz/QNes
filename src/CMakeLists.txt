@@ -5,7 +5,8 @@ set(QNES_SOURCES
     qnes_bus.cpp
     qnes_ppu.cpp
     qnes_cartridge.cpp
-    qnes_mapper.cpp)
+    qnes_mapper.cpp
+    dma_controller.cpp)
 
 add_library(qnes_lib STATIC ${QNES_SOURCES})
 

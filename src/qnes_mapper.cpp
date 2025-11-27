@@ -14,6 +14,6 @@ void Mapper::CPUWrite(u16 address, u8 value) {
 
 u8 Mapper::PPURead(u16 address) const { return 0; }
 
-void Mapper::PPUWrite(u16 address, u8 value) { return; }
+void Mapper::PPUWrite(u16 address, u8 value) {}
 
 }  // namespace QNes

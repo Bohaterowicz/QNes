@@ -1,1 +1,3 @@
 - Add option to randomly initialize memory (Configure the emulator so it provides a random system state and random RAM contents on power-up. )
+
+- "Illegal" Opcodes and Undocumented Instructions (https://www.masswerk.at/6502/6502_instruction_set.html#SLO) -- support for both execution and also READ cycle check

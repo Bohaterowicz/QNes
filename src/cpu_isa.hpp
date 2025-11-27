@@ -25,6 +25,8 @@ enum class AddressingMode : u8 {
 struct ISA {
   using InstructionFunc = void (*)(CPU &);
 
+  static constexpr bool IsReadCycle(u8 opcode, u8 cycle);
+
   template <AddressingMode MODE>
   struct PHA {
     static void Execute(CPU &cpu) { ASSERT(false, "Invalid PHA Instruction"); }
@@ -1474,6 +1476,107 @@ struct ISA::BRK<AddressingMode::Implied> {
   static constexpr u8 OPCODE = 0x00;
   static constexpr u8 CYCLES = 7;
 };
+
+constexpr bool ISA::IsReadCycle(u8 opcode, u8 cycle) {
+  if (cycle == 0) {
+    // 0 cycle is always a read
+    return true;
+  }
+
+  const bool zero_page_store_cycle = (cycle <= 1);
+  const bool zero_page_indexed_store_cycle = (cycle <= 2);
+  const bool absolute_store_cycle = (cycle <= 2);
+  const bool absolute_indexed_store_cycle = (cycle <= 3);
+  const bool indirect_store_cycle = (cycle <= 4);
+
+  const bool rmw_zero_page_cycle = (cycle <= 2);
+  const bool rmw_zero_page_indexed_cycle = (cycle <= 3);
+  const bool rmw_absolute_cycle = (cycle <= 3);
+  const bool rmw_absolute_indexed_cycle = (cycle <= 4);
+
+  switch (opcode) {
+    // Store instructions - Zero Page
+    case ISA::STA<AddressingMode::ZeroPage>::OPCODE:
+    case ISA::STX<AddressingMode::ZeroPage>::OPCODE:
+    case ISA::STY<AddressingMode::ZeroPage>::OPCODE:
+      return zero_page_store_cycle;
+
+    // Store instructions - Zero Page Indexed
+    case ISA::STA<AddressingMode::ZeroPageX>::OPCODE:
+    case ISA::STX<AddressingMode::ZeroPageY>::OPCODE:
+    case ISA::STY<AddressingMode::ZeroPageX>::OPCODE:
+      return zero_page_indexed_store_cycle;
+
+    // Store instructions - Absolute
+    case ISA::STA<AddressingMode::Absolute>::OPCODE:
+    case ISA::STX<AddressingMode::Absolute>::OPCODE:
+    case ISA::STY<AddressingMode::Absolute>::OPCODE:
+      return absolute_store_cycle;
+
+    // Store instructions - Absolute Indexed
+    case ISA::STA<AddressingMode::AbsoluteX>::OPCODE:
+    case ISA::STA<AddressingMode::AbsoluteY>::OPCODE:
+      return absolute_indexed_store_cycle;
+
+    // Store instructions - Indirect
+    case ISA::STA<AddressingMode::XIndirect>::OPCODE:
+    case ISA::STA<AddressingMode::IndirectY>::OPCODE:
+      return indirect_store_cycle;
+
+    // Read-Modify-Write instructions - Zero Page
+    case ISA::INC<AddressingMode::ZeroPage>::OPCODE:
+    case ISA::DEC<AddressingMode::ZeroPage>::OPCODE:
+    case ISA::ASL<AddressingMode::ZeroPage>::OPCODE:
+    case ISA::LSR<AddressingMode::ZeroPage>::OPCODE:
+    case ISA::ROL<AddressingMode::ZeroPage>::OPCODE:
+    case ISA::ROR<AddressingMode::ZeroPage>::OPCODE:
+      return rmw_zero_page_cycle;
+
+    // Read-Modify-Write instructions - Zero Page Indexed
+    case ISA::INC<AddressingMode::ZeroPageX>::OPCODE:
+    case ISA::DEC<AddressingMode::ZeroPageX>::OPCODE:
+    case ISA::ASL<AddressingMode::ZeroPageX>::OPCODE:
+    case ISA::LSR<AddressingMode::ZeroPageX>::OPCODE:
+    case ISA::ROL<AddressingMode::ZeroPageX>::OPCODE:
+    case ISA::ROR<AddressingMode::ZeroPageX>::OPCODE:
+      return rmw_zero_page_indexed_cycle;
+
+    // Read-Modify-Write instructions - Absolute
+    case ISA::INC<AddressingMode::Absolute>::OPCODE:
+    case ISA::DEC<AddressingMode::Absolute>::OPCODE:
+    case ISA::ASL<AddressingMode::Absolute>::OPCODE:
+    case ISA::LSR<AddressingMode::Absolute>::OPCODE:
+    case ISA::ROL<AddressingMode::Absolute>::OPCODE:
+    case ISA::ROR<AddressingMode::Absolute>::OPCODE:
+      return rmw_absolute_cycle;
+
+    // Read-Modify-Write instructions - Absolute Indexed
+    case ISA::INC<AddressingMode::AbsoluteX>::OPCODE:
+    case ISA::DEC<AddressingMode::AbsoluteX>::OPCODE:
+    case ISA::ASL<AddressingMode::AbsoluteX>::OPCODE:
+    case ISA::LSR<AddressingMode::AbsoluteX>::OPCODE:
+    case ISA::ROL<AddressingMode::AbsoluteX>::OPCODE:
+    case ISA::ROR<AddressingMode::AbsoluteX>::OPCODE:
+      return rmw_absolute_indexed_cycle;
+
+    // Stack pushing instructions
+    case ISA::PHA<AddressingMode::Implied>::OPCODE:
+    case ISA::PHP<AddressingMode::Implied>::OPCODE:
+      return cycle != 2;
+
+    // JSR pushes PC high/low on cycles 3 and 4
+    case ISA::JSR<AddressingMode::Absolute>::OPCODE:
+      return !(cycle == 3 || cycle == 4);
+
+    // BRK pushes PC high/low/status on cycles 2-4
+    case ISA::BRK<AddressingMode::Implied>::OPCODE:
+      return !(cycle >= 2 && cycle <= 4);
+
+    // Default case - always a read
+    default:
+      return true;
+  }
+}
 
 inline constexpr auto Instructions = [] constexpr {
   std::array<ISA::InstructionFunc, 256> table{};

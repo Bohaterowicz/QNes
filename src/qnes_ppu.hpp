@@ -47,9 +47,9 @@ class PPU {
 
   InternalRegisters internal_registers{};
 
-  u8 ppu_control;
-  u8 ppu_mask;
-  u8 ppu_status;
+  u8 ppu_control = 0;
+  u8 ppu_mask = 0;
+  u8 ppu_status = 0;
 
   u16 scanline_idx = 0;
   u16 scanline_cycle = 0;

@@ -10,7 +10,6 @@
 #include "qnes_ppu.hpp"
 
 namespace QNes {
-namespace {
 
 class NESBusPPURegisterMirroringTest : public ::testing::Test {
  protected:
@@ -19,7 +18,10 @@ class NESBusPPURegisterMirroringTest : public ::testing::Test {
         vram_memory(Kilobytes(2)),
         ppu_bus(&vram_memory),
         ppu(&ppu_bus, nullptr),
-        bus(&ram_memory, &ppu, nullptr) {
+        bus(&ram_memory, &dma_ctrl, &ppu, nullptr),
+        cpu(&bus) {
+    bus.SetCPU(&cpu);
+    dma_ctrl.SetBus(&bus);
     ResetState();
   }
 
@@ -45,9 +47,11 @@ class NESBusPPURegisterMirroringTest : public ::testing::Test {
 
   Memory ram_memory;
   Memory vram_memory;
+  DMAController dma_ctrl;
   VRAM_Only_PPUBus ppu_bus{&vram_memory};
   PPU ppu{&ppu_bus, nullptr};
   NESBus bus;
+  CPU cpu;
 };
 
 TEST_F(NESBusPPURegisterMirroringTest,
@@ -123,5 +127,4 @@ TEST_F(NESBusPPURegisterMirroringTest, WritesTargetSameRegisterAcrossMirrors) {
   }
 }
 
-}  // namespace
 }  // namespace QNes

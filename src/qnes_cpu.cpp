@@ -5,6 +5,26 @@
 
 namespace QNes {
 
+u8 CPU::Read(u16 address) {
+  bus->SetAddress(address);
+  return bus->Read();
+}
+
+u8 CPU::Read(u8 high_addr, u8 low_addr) {
+  bus->SetAddress(high_addr, low_addr);
+  return bus->Read();
+}
+
+void CPU::Write(u16 address, u8 value) {
+  bus->SetAddress(address);
+  bus->Write(value);
+}
+
+void CPU::Write(u8 high_addr, u8 low_addr, u8 value) {
+  bus->SetAddress(high_addr, low_addr);
+  bus->Write(value);
+}
+
 void CPU::WriteStackValue(u8 value) {
   bus->SetAddress(0x01, state.sp);
   bus->Write(value);

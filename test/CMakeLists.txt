@@ -27,7 +27,8 @@ add_executable(
   cpu_tests/isa_register_transfer.cpp
   nes_main/nes_memory_mirroring.cpp
   nes_main/nes_ppu_register_mirroring.cpp
-  nes_main/nes_ppu_registers.cpp)
+  nes_main/nes_ppu_registers.cpp
+  nes_main/nes_oam_dma_transfer.cpp)
 
 # Klaus 6502 functional test - standalone executable
 add_executable(qnes_functional_test test_roms/cpu_functional_test.cpp)

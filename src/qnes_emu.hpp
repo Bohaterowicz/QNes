@@ -13,10 +13,14 @@ class Emulator {
   Emulator()
       : memory(std::make_unique<Memory>(Kilobytes(2))),
         vram(std::make_unique<Memory>(Kilobytes(2))),
+        dma_controller(std::make_unique<DMAController>()),
         ppu_bus(std::make_unique<PPUBus>(vram.get(), nullptr)),
         ppu(std::make_unique<PPU>(ppu_bus.get(), nullptr)),
-        bus(std::make_unique<NESBus>(memory.get(), ppu.get(), nullptr)),
-        cpu(std::make_unique<CPU>(bus.get())) {};
+        bus(std::make_unique<NESBus>(memory.get(), dma_controller.get(),
+                                     ppu.get(), nullptr)),
+        cpu(std::make_unique<CPU>(bus.get())) {
+    dma_controller->SetBus(bus.get());
+  };
   Emulator(const Emulator &) = delete;
   Emulator &operator=(const Emulator &) = delete;
   Emulator(Emulator &&) = delete;
@@ -34,12 +38,13 @@ class Emulator {
   }
 
  private:
-  Cartridge *cartridge;
+  Cartridge *cartridge = nullptr;
   MemoryPtr memory;
   MemoryPtr vram;
+  DMAControllerPtr dma_controller;
   BusPtr ppu_bus;
   PPUPtr ppu;
-  BusPtr bus;
+  NESBusPtr bus;
   CPUPtr cpu;
 };
 

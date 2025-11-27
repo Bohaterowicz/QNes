@@ -41,3 +41,7 @@ Diagnostics:
       - performance-no-int-to-ptr
       - cppcoreguidelines-non-private-member-variables-in-classes
       - cppcoreguidelines-pro-type-static-cast-downcast
+      - readability-simplify-boolean-expr
+      - readability-convert-member-functions-to-static
+      - readability-identifier-length
+      - readability-suspicious-call-argument

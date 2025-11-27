@@ -1,5 +1,6 @@
 #pragma once
 
+#include "dma_controller.hpp"
 #include "qnes_bits.hpp"
 #include "qnes_c.hpp"
 #include "qnes_cartridge.hpp"
@@ -75,8 +76,12 @@ class RAMBus : public Bus {
  */
 class NESBus : public Bus {
  public:
-  NESBus(Memory *memory, PPU *ppu, Cartridge *cartridge)
-      : memory(memory), ppu(ppu), cartridge(cartridge) {};
+  NESBus(Memory *memory, DMAController *dma_controller, PPU *ppu,
+         Cartridge *cartridge)
+      : memory(memory),
+        dma_controller(dma_controller),
+        ppu(ppu),
+        cartridge(cartridge) {};
   NESBus(const NESBus &) = delete;
   NESBus &operator=(const NESBus &) = delete;
   NESBus(NESBus &&) = delete;
@@ -87,12 +92,19 @@ class NESBus : public Bus {
   void Write(u8 value) override;
 
   void SetCartridge(Cartridge *cartridge) { this->cartridge = cartridge; }
+  void SetCPU(CPU *cpu) { this->cpu = cpu; }
+
+  void HaltCPU(bool halt) { cpu->Halt(halt); }
 
  private:
-  Memory *memory = nullptr;        // RAM
-  PPU *ppu = nullptr;              // PPU
-  Cartridge *cartridge = nullptr;  // Cartridge
+  CPU *cpu = nullptr;                       // CPU
+  Memory *memory = nullptr;                 // RAM
+  DMAController *dma_controller = nullptr;  // DMA Controller
+  PPU *ppu = nullptr;                       // PPU
+  Cartridge *cartridge = nullptr;           // Cartridge
 };
+
+using NESBusPtr = std::unique_ptr<NESBus>;
 
 class VRAM_Only_PPUBus : public Bus {
  public:

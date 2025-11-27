@@ -42,8 +42,7 @@ void NESBus::Write(u8 value) {
            "Invalid PPU register write address");
     ppu->Write(masked_addr, value);
   } else if (addr == 0x4014) {
-    // DO DMA transfer
-    ASSERT(false, "Invalid address");
+    dma_controller->RequestDMA(value);
   } else {
     ASSERT(addr >= 0x8000, "Invalid address");
     // Cartrige access

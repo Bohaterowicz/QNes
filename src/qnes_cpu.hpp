@@ -51,6 +51,8 @@ class CPU {
   void Reset();
   void Step();
 
+  void Halt(bool halt) { is_halted = halt; }
+
   void SignalNMI() { nmi_pending = true; }
   void SignalIRQ() { irq_pending = true; }
 
@@ -58,11 +60,18 @@ class CPU {
   GlobalMode glabal_mode = GlobalMode::RESET;
   State state{};
 
+  bool is_halted = false;
+
   void HandleReset();
   void HandleNMI();
   void HandleIRQ();
 
   u8 interrupt_cycle = 0;
+
+  [[nodiscard]] u8 Read(u16 address);
+  [[nodiscard]] u8 Read(u8 high_addr, u8 low_addr);
+  void Write(u16 address, u8 value);
+  void Write(u8 high_addr, u8 low_addr, u8 value);
 
   void WriteStackValue(u8 value);
   u8 ReadStackValue();

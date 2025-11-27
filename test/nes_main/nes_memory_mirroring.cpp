@@ -14,7 +14,9 @@ namespace {
 class NESBusMirroringTest : public ::testing::Test {
  protected:
   // NOTE: PPU is not used in this test
-  NESBusMirroringTest() : memory(Kilobytes(2)), bus(&memory, nullptr, nullptr) {
+  NESBusMirroringTest() : memory(Kilobytes(2)), bus(&memory, &dma_ctrl, nullptr, nullptr), cpu(&bus) {
+    bus.SetCPU(&cpu);
+    dma_ctrl.SetBus(&bus);
     memory.Clear();
   }
 
@@ -26,7 +28,9 @@ class NESBusMirroringTest : public ::testing::Test {
                                                   0x1800};
 
   Memory memory;
+  DMAController dma_ctrl;
   NESBus bus;
+  CPU cpu;
 };
 
 TEST_F(NESBusMirroringTest, WriteMirrorsEvery2KB) {
