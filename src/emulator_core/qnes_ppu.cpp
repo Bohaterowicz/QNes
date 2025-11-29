@@ -38,8 +38,43 @@ void PPU::UpdateRenderingToggle() {
   }
 }
 
+void PPU::ProcessScanlineCycle() {
+  if (scanline_cycle == 0) {
+    // first cycle of the scanline is a idle cycle
+    return;
+  }
+
+  if (scanline_cycle < 257) {
+    // 256 cycles
+
+    // first fetch tile data - this process is spread across 8 cycle - 4 reads,
+    // each read is 2 cycles.
+    // 1. Read nametable byte
+    // 2. Read attribute table byte
+    // 3. Read pattern table low (plane 0)
+    // 4. Read pattern table high (plane 1)
+    // Again remember - each read is 2 cycles thus fetching those four values
+    // takes 8 cycles.
+
+    auto read_cycle = (scanline_cycle - 1) % 8;
+    if (read_cycle < 2) {
+      // first two reads are of nametable byte
+      if (read_cycle == 0) {
+        // prepare address for nametable byte read
+        ppu_bus->SetAddress(internal_registers.current_vram_address);
+      } else {
+        // perform nametable byte read
+        nametable_byte_latch = ppu_bus->Read();
+      }
+    }
+  }
+}
+
 void PPU::Step() {
   UpdateRenderingToggle();
+
+  ProcessScanlineCycle();
+
   ++scanline_cycle;
   if (scanline_cycle > 340) {
     ++scanline_idx;

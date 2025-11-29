@@ -1,17 +1,8 @@
-set(QNES_SOURCES
-    qnes_cpu.cpp
-    qnes_emu.cpp
-    cpu_isa.cpp
-    qnes_bus.cpp
-    qnes_ppu.cpp
-    qnes_cartridge.cpp
-    qnes_mapper.cpp
-    dma_controller.cpp)
+# Add emulator_core subdirectory (has its own CMakeLists.txt)
+add_subdirectory(emulator_core)
 
-add_library(qnes_lib STATIC ${QNES_SOURCES})
+# Add platform subdirectory
+add_subdirectory(platform)
 
-target_include_directories(qnes_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_executable(qnes qnes_main.cpp)
-
-target_link_libraries(qnes PRIVATE qnes_lib)
+# Add renderer subdirectory
+add_subdirectory(renderer)

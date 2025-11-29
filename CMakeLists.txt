@@ -10,5 +10,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+# first add the third party dependencies
+add_subdirectory(third_party)
+
+# then add the source code
 add_subdirectory(src)
+
+# finally add the test code
 add_subdirectory(test)

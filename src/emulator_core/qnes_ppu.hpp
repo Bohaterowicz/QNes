@@ -54,6 +54,8 @@ class PPU {
   u16 scanline_idx = 0;
   u16 scanline_cycle = 0;
 
+  u8 nametable_byte_latch = 0;
+
   bool rendering_toggle_scheduled = false;
   int rendering_toggle_cycles_to_wait = 0;
   u8 new_rendering_flags = 0;
@@ -84,6 +86,8 @@ class PPU {
 
   void VRAMIncrementCoarseX();
   void VRAMIncrementFineY();
+
+  void ProcessScanlineCycle();
 
   Bus *ppu_bus = nullptr;
   FrameBuffer *external_framebuffer = nullptr;
