@@ -4,7 +4,7 @@
 
 #include "qnes_c.hpp"
 
-namespace QNES::platform::windows {
+namespace QNes::platform::windows {
 
 // Opengl init parameters
 
@@ -30,4 +30,4 @@ void SetOpenGLDebugLevel(OpenGLDebugLevel level);
 
 void WinSetVSync(bool vsync);
 
-}  // namespace QNES::platform::windows
+}  // namespace QNes::platform::windows

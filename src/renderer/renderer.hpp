@@ -1,14 +1,12 @@
 #pragma once
 
 #include <functional>
-#include <limits>
 #include <utility>
 
-#include "emulator_core/qnes_frame_buffer.hpp"
+#include "emulator_core/qnes_texture.hpp"
+#include "renderer_constants.hpp"
 
-namespace QNES::renderer {
-
-constexpr u32 INVALID_OPENGL_ID{(std::numeric_limits<u32>::max)()};
+namespace QNes::renderer {
 
 struct RendererPlatformBackend {
   std::function<bool()> Initialize;
@@ -16,15 +14,15 @@ struct RendererPlatformBackend {
 
   // ImGui backend
   std::function<void()> InterfaceNewFrame;
+  std::function<std::string()> OpenFileDialog;
 };
 
 class Renderer {
  public:
   Renderer(RendererPlatformBackend platform_backend, size_t width,
            size_t height) noexcept
-      : platform_backend(std::move(platform_backend)),
-        framebuffer_texture_width(width),
-        framebuffer_texture_height(height) {}
+      : pattern_table(128, 128),
+        platform_backend(std::move(platform_backend)) {}
   ~Renderer() noexcept = default;
 
   Renderer(const Renderer &) noexcept = delete;
@@ -32,20 +30,25 @@ class Renderer {
   Renderer(Renderer &&) noexcept = delete;
   Renderer &operator=(Renderer &&) noexcept = delete;
 
-  bool Initialize() noexcept;
-  void DrawFrameBuffer(const NESFrameBuffer &framebuffer) noexcept;
+  bool Initialize(NESTexture *framebuffer) noexcept;
+  void DrawFrameBuffer(const QNes::NESTexture &framebuffer) noexcept;
   void DrawInterface() noexcept;
   void SwapBuffers() noexcept;
+
+  [[nodiscard]] const RendererPlatformBackend &GetPlatformBackend()
+      const noexcept {
+    return platform_backend;
+  }
+
+  QNes::NESTexture pattern_table;
+  // QNes::NESTexture *framebuffer = nullptr;
 
  private:
   RendererPlatformBackend platform_backend;
 
-  size_t framebuffer_texture_width = 0;
-  size_t framebuffer_texture_height = 0;
-  u32 framebuffer_texture_glid = INVALID_OPENGL_ID;
   u32 frame_texture_shader_program = INVALID_OPENGL_ID;
   u32 frame_quad_vao = INVALID_OPENGL_ID;
   u32 frame_quad_vbo = INVALID_OPENGL_ID;
 };
 
-}  // namespace QNES::renderer
+}  // namespace QNes::renderer

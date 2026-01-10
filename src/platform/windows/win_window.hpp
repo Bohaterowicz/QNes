@@ -7,8 +7,8 @@
 
 #include "qnes_c.hpp"
 
-namespace QNES::platform::windows {
-class WinQNESWindow {
+namespace QNes::platform::windows {
+class WinQNesWindow {
  public:
   static PIXELFORMATDESCRIPTOR GetDefaultPixelFormat();
 
@@ -18,15 +18,15 @@ class WinQNESWindow {
   static constexpr i32 DEFAULT_WINDOW_POS_Y = 200;
 
  public:
-  WinQNESWindow(std::string_view name) : name{name} {}
+  WinQNesWindow(std::string_view name) : name{name} {}
 
-  WinQNESWindow &SetSize(i32 width, i32 height) {
+  WinQNesWindow &SetSize(i32 width, i32 height) {
     this->width = width;
     this->height = height;
     return *this;
   }
 
-  WinQNESWindow &SetPixelFormat(
+  WinQNesWindow &SetPixelFormat(
       const PIXELFORMATDESCRIPTOR &pixel_format_desc) {
     this->pixel_format_desc = pixel_format_desc;
     return *this;
@@ -57,4 +57,4 @@ class WinQNESWindow {
 
   bool shutdown_requested = false;
 };
-}  // namespace QNES::platform::windows
+}  // namespace QNes::platform::windows

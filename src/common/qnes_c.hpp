@@ -68,3 +68,9 @@ constexpr u64 Kilobytes(size_t size) { return size * 1024ULL; }
 constexpr u64 Megabytes(size_t size) { return Kilobytes(size) * 1024ULL; }
 constexpr u64 Gigabytes(size_t size) { return Megabytes(size) * 1024ULL; }
 constexpr u64 Terabytes(size_t size) { return Gigabytes(size) * 1024ULL; }
+
+// Safe type conversion
+[[nodiscard]] inline u32 SafeU64ToU32(u64 value) noexcept {
+  ASSERT(value <= 0xFFFFFFFFULL, "Value is too large to convert to u32");
+  return static_cast<u32>(value);
+}

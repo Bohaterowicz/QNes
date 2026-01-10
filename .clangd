@@ -45,3 +45,4 @@ Diagnostics:
       - readability-convert-member-functions-to-static
       - readability-identifier-length
       - readability-suspicious-call-argument
+      - readability-uppercase-literal-suffix

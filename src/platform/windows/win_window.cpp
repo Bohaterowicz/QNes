@@ -5,9 +5,9 @@
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg,
                                               WPARAM wParam, LPARAM lParam);
 
-namespace QNES::platform::windows {
+namespace QNes::platform::windows {
 
-PIXELFORMATDESCRIPTOR WinQNESWindow::GetDefaultPixelFormat() {
+PIXELFORMATDESCRIPTOR WinQNesWindow::GetDefaultPixelFormat() {
   PIXELFORMATDESCRIPTOR pixel_format_desc = {};
   pixel_format_desc.nSize = sizeof(PIXELFORMATDESCRIPTOR);
   pixel_format_desc.nVersion = 1;
@@ -49,7 +49,7 @@ LRESULT CALLBACK WinQNESWindowProc(HWND hwnd, UINT msg, WPARAM wparam,
   switch (msg) {
     case WM_CREATE: {
       auto *create = reinterpret_cast<CREATESTRUCT *>(lparam);  // NOLINT
-      auto *window = static_cast<WinQNESWindow *>(create->lpCreateParams);
+      auto *window = static_cast<WinQNesWindow *>(create->lpCreateParams);
       SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(window));
       PIXELFORMATDESCRIPTOR pixel_format_desc = window->GetPixelFormat();
       if (!Win32SetPixelFormat(hwnd, pixel_format_desc)) {
@@ -67,7 +67,7 @@ LRESULT CALLBACK WinQNESWindowProc(HWND hwnd, UINT msg, WPARAM wparam,
   return result;
 }
 
-bool WinQNESWindow::Create(HINSTANCE instance) {
+bool WinQNesWindow::Create(HINSTANCE instance) {
   WNDCLASSEXA window_class = {};
   window_class.cbSize = sizeof(WNDCLASSEXA);
   window_class.style = CS_OWNDC;
@@ -83,10 +83,10 @@ bool WinQNESWindow::Create(HINSTANCE instance) {
   }
 
   RECT init_window_size;
-  init_window_size.left = WinQNESWindow::DEFAULT_WINDOW_POS_X;
-  init_window_size.right = WinQNESWindow::DEFAULT_WINDOW_POS_X + width;
-  init_window_size.top = WinQNESWindow::DEFAULT_WINDOW_POS_Y;
-  init_window_size.bottom = WinQNESWindow::DEFAULT_WINDOW_POS_Y + height;
+  init_window_size.left = WinQNesWindow::DEFAULT_WINDOW_POS_X;
+  init_window_size.right = WinQNesWindow::DEFAULT_WINDOW_POS_X + width;
+  init_window_size.top = WinQNesWindow::DEFAULT_WINDOW_POS_Y;
+  init_window_size.bottom = WinQNesWindow::DEFAULT_WINDOW_POS_Y + height;
   AdjustWindowRectEx(&init_window_size, WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0);
 
   // Create window
@@ -108,7 +108,7 @@ bool WinQNESWindow::Create(HINSTANCE instance) {
   return true;
 }
 
-void WinQNESWindow::ProcessMessages() {  // NOLINT
+void WinQNesWindow::ProcessMessages() {  // NOLINT
   MSG msg;
   while (PeekMessageA(&msg, nullptr, 0, 0, PM_REMOVE) != 0) {
     TranslateMessage(&msg);
@@ -116,4 +116,4 @@ void WinQNESWindow::ProcessMessages() {  // NOLINT
   }
 }
 
-}  // namespace QNES::platform::windows
+}  // namespace QNes::platform::windows

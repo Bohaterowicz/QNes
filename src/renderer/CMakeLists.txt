@@ -1,4 +1,4 @@
-set(RENDERER_SOURCES renderer.cpp interface.cpp)
+set(RENDERER_SOURCES renderer.cpp draw_interface.cpp)
 
 add_library(qnes_renderer_lib STATIC ${RENDERER_SOURCES}
                                      ${IMGUI_SOURCES_API_BACKENDS})
@@ -11,4 +11,4 @@ target_include_directories(
 
 find_package(OpenGL REQUIRED)
 target_link_libraries(qnes_renderer_lib PRIVATE ${GLEW_LIBRARIES} OpenGL::GL
-                                                imgui_lib)
+                                                imgui_lib qnes_lib)

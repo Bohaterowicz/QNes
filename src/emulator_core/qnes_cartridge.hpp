@@ -16,6 +16,11 @@ static constexpr size_t INES_PRG_ROM_BANK_SIZE = Kilobytes(16);
 static constexpr size_t INES_CHR_ROM_BANK_SIZE = Kilobytes(8);
 static constexpr size_t INES_CHR_RAM_BANK_SIZE = Kilobytes(8);
 
+struct DataBuffer {
+  std::unique_ptr<u8[]> data = nullptr;
+  size_t size = 0;
+};
+
 struct INESHeader {
   u8 signature[4];
   u8 prg_rom_bank_count;
@@ -43,7 +48,9 @@ class Cartridge {
     SingleScreen,
   };
 
-  Cartridge(INESHeader header, std::span<const u8> data) noexcept;
+  Cartridge() noexcept = default;
+
+  Cartridge(DataBuffer data, INESHeader header) noexcept;
 
   Cartridge(const Cartridge &) noexcept = delete;
   Cartridge &operator=(const Cartridge &) noexcept = delete;
@@ -55,7 +62,8 @@ class Cartridge {
         submapper_number(other.submapper_number),
         prg_rom_data(other.prg_rom_data),
         chr_rom_data(other.chr_rom_data),
-        chr_ram_data(std::move(other.chr_ram_data)) {
+        chr_ram_data(std::move(other.chr_ram_data)),
+        raw_data(std::move(other.raw_data)) {
     mapper->cartridge = this;
     other.mapper = nullptr;
     other.header = {};
@@ -65,6 +73,7 @@ class Cartridge {
     other.prg_rom_data = {};
     other.chr_rom_data = std::nullopt;
     other.chr_ram_data = std::nullopt;
+    other.raw_data = {};
   }
   Cartridge &operator=(Cartridge &&other) noexcept {
     if (this != &other) {
@@ -77,6 +86,7 @@ class Cartridge {
       prg_rom_data = other.prg_rom_data;
       chr_rom_data = other.chr_rom_data;
       chr_ram_data = std::move(other.chr_ram_data);
+      raw_data = std::move(other.raw_data);
       other.mapper = nullptr;
       other.header = {};
       other.format = NESFormat::INES;
@@ -85,6 +95,7 @@ class Cartridge {
       other.prg_rom_data = {};
       other.chr_rom_data = std::nullopt;
       other.chr_ram_data = std::nullopt;
+      other.raw_data = {};
     }
     return *this;
   }
@@ -105,19 +116,29 @@ class Cartridge {
   }
   void PPUWrite(u16 address, u8 value) { mapper->PPUWrite(address, value); }
 
+  [[nodiscard]] const u8 *GetCHRROMDataPtr() const {
+    return chr_rom_data.value().data();
+  }
+
  private:
   std::unique_ptr<Mapper> mapper = nullptr;
   INESHeader header{};
-  NESFormat format;
+  NESFormat format = NESFormat::INES;
   u16 mapper_number = 0;
   u8 submapper_number = 0;
   std::span<const u8> prg_rom_data;
   std::optional<std::span<const u8>> chr_rom_data;
   std::optional<std::unique_ptr<u8[]>> chr_ram_data;
 
+  DataBuffer raw_data;
+
   friend class Mapper;
 };
 
-[[nodiscard]] std::optional<Cartridge> LoadCartridge(std::span<const u8> data);
+[[nodiscard]] std::optional<Cartridge> LoadCartridge(DataBuffer data);
+
+class NESTexture;
+void DecodePatternTable(const Cartridge &cartridge, NESTexture &texture,
+                        size_t pattern_table_index = 0);
 
 }  // namespace QNes

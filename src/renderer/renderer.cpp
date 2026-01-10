@@ -4,9 +4,9 @@
 
 #include <format>
 
-#include "interface.hpp"
+#include "draw_interface.hpp"
 
-namespace QNES::renderer {
+namespace QNes::renderer {
 
 static constexpr f32 quadVertices[] = {
     // Positions (loc 0) // TexCoords (loc 1)
@@ -52,20 +52,15 @@ void main()
 
 )";
 
-void CreateFramebufferTexture(u32 &framebuffer_texture_glid, size_t width,
-                              size_t height) {
-  framebuffer_texture_glid = INVALID_OPENGL_ID;
-  glCreateTextures(GL_TEXTURE_2D, 1, &framebuffer_texture_glid);
-  glTextureStorage2D(framebuffer_texture_glid, 1, GL_RGB8, (GLsizei)width,
+void CreateOpenGLTexture(u32 &texture_glid, size_t width, size_t height) {
+  texture_glid = INVALID_OPENGL_ID;
+  glCreateTextures(GL_TEXTURE_2D, 1, &texture_glid);
+  glTextureStorage2D(texture_glid, 1, GL_RGBA8, (GLsizei)width,
                      (GLsizei)height);
-  glTextureParameteri(framebuffer_texture_glid, GL_TEXTURE_MIN_FILTER,
-                      GL_LINEAR);
-  glTextureParameteri(framebuffer_texture_glid, GL_TEXTURE_MAG_FILTER,
-                      GL_LINEAR);
-  glTextureParameteri(framebuffer_texture_glid, GL_TEXTURE_WRAP_S,
-                      GL_CLAMP_TO_EDGE);
-  glTextureParameteri(framebuffer_texture_glid, GL_TEXTURE_WRAP_T,
-                      GL_CLAMP_TO_EDGE);
+  glTextureParameteri(texture_glid, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTextureParameteri(texture_glid, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTextureParameteri(texture_glid, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTextureParameteri(texture_glid, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 }
 
 bool CreateFrameTextureShader(u32 &frame_texture_shader_program) {
@@ -127,17 +122,30 @@ bool CreateFrameQuad(u32 &frame_quad_vao, u32 &frame_quad_vbo) {
   return true;
 }
 
-bool Renderer::Initialize() noexcept {
+bool Renderer::Initialize(NESTexture *framebuffer) noexcept {
   if (!platform_backend.Initialize()) {
     return false;
   }
 
   // Create and initialize framebuffer texture
-  CreateFramebufferTexture(framebuffer_texture_glid, framebuffer_texture_width,
-                           framebuffer_texture_height);
-  if (framebuffer_texture_glid == INVALID_OPENGL_ID) {
+  u32 framebuffer_texture_glid = INVALID_OPENGL_ID;
+  u32 pattern_table_texture_glid = INVALID_OPENGL_ID;
+  auto [framebuffer_width, framebuffer_height] = framebuffer->GetDimensions();
+  auto [pattern_table_width, pattern_table_height] =
+      pattern_table.GetDimensions();
+  CreateOpenGLTexture(framebuffer_texture_glid, framebuffer_width,
+                      framebuffer_height);
+
+  CreateOpenGLTexture(pattern_table_texture_glid, pattern_table_width,
+                      pattern_table_height);
+
+  if (framebuffer_texture_glid == INVALID_OPENGL_ID ||
+      pattern_table_texture_glid == INVALID_OPENGL_ID) {
     return false;
   }
+
+  framebuffer->SetGLID(framebuffer_texture_glid);
+  pattern_table.SetGLID(pattern_table_texture_glid);
 
   if (!CreateFrameTextureShader(frame_texture_shader_program)) {
     return false;
@@ -149,27 +157,27 @@ bool Renderer::Initialize() noexcept {
   return true;
 }
 
-void Renderer::DrawFrameBuffer(const NESFrameBuffer &framebuffer) noexcept {
-  glTextureSubImage2D(framebuffer_texture_glid, 0, 0, 0,
-                      (GLsizei)framebuffer_texture_width,
-                      (GLsizei)framebuffer_texture_height, GL_RGB,
-                      GL_UNSIGNED_BYTE, framebuffer.GetData());
+void Renderer::DrawFrameBuffer(const QNes::NESTexture &framebuffer) noexcept {
+  auto [width, height] = framebuffer.GetDimensions();
+  glTextureSubImage2D(framebuffer.GetGLID(), 0, 0, 0, (GLsizei)width,
+                      (GLsizei)height, GL_RGBA, GL_UNSIGNED_BYTE,
+                      framebuffer.GetData());
   glUseProgram(frame_texture_shader_program);
   GLint textureLocation =
       glGetUniformLocation(frame_texture_shader_program, "ourTexture");
   glUniform1i(textureLocation,
               0);  // Tell the sampler 'ourTexture' to use texture unit 0
   glClear(GL_COLOR_BUFFER_BIT);
-  glBindTextureUnit(0, framebuffer_texture_glid);
+  glBindTextureUnit(0, framebuffer.GetGLID());
   glBindVertexArray(frame_quad_vao);
   glDrawArrays(GL_TRIANGLES, 0, 6);
   glBindVertexArray(0);
   glUseProgram(0);
 }
 void Renderer::DrawInterface() noexcept {
-  InterfaceNewFrame(platform_backend);
-  InterfaceDrawDemoWindow();
+  InterfaceNewFrame(*this);
+  InterfaceDrawBuild(*this);
   InterfaceRender();
 }
 void Renderer::SwapBuffers() noexcept { platform_backend.SwapBuffers(); }
-}  // namespace QNES::renderer
+}  // namespace QNes::renderer

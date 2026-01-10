@@ -4,7 +4,7 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_win32.h"
 
-namespace QNES::platform::windows {
+namespace QNes::platform::windows {
 
 bool WinInitializeImGui(HWND window_handle) {
   IMGUI_CHECKVERSION();
@@ -23,4 +23,4 @@ bool WinInitializeImGui(HWND window_handle) {
 
 void WinImGuiNewFrame() { ImGui_ImplWin32_NewFrame(); }
 
-}  // namespace QNES::platform::windows
+}  // namespace QNes::platform::windows

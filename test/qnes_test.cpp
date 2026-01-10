@@ -11,6 +11,6 @@ TEST(HelloQnesTest, Basic) {
 }
 
 TEST(QNesEmulatorBasicTest, Startup) {
-  QNes::Emulator emulator;
+  QNes::Emulator::Initialize(nullptr);
   EXPECT_EQ(1, 1);
 }

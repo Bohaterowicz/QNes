@@ -4,5 +4,8 @@ add_subdirectory(emulator_core)
 # Add platform subdirectory
 add_subdirectory(platform)
 
+# Add gui subdirectory
+add_subdirectory(gui)
+
 # Add renderer subdirectory
 add_subdirectory(renderer)

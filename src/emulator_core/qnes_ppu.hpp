@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #include "qnes_c.hpp"
-#include "qnes_framebuffer.hpp"
+#include "qnes_texture.hpp"
 
 namespace QNes {
 
@@ -12,7 +12,7 @@ class NESBus;
 
 class PPU {
  public:
-  PPU(Bus *ppu_bus, FrameBuffer *external_framebuffer)
+  PPU(Bus *ppu_bus, NESTexture *external_framebuffer)
       : ppu_bus(ppu_bus), external_framebuffer(external_framebuffer) {};
   PPU(const PPU &) = delete;
   PPU &operator=(const PPU &) = delete;
@@ -90,7 +90,7 @@ class PPU {
   void ProcessScanlineCycle();
 
   Bus *ppu_bus = nullptr;
-  FrameBuffer *external_framebuffer = nullptr;
+  NESTexture *external_framebuffer = nullptr;
 
   friend class NESBus;
   friend struct PPU_Testing;

@@ -7,7 +7,7 @@
 #include "GL/wglew.h"
 #include "qnes_c.hpp"
 
-namespace QNES::platform::windows {
+namespace QNes::platform::windows {
 
 bool IsRenderDocAttached() {
   auto *render_doc_module = GetModuleHandleA("renderdoc.dll");
@@ -259,4 +259,4 @@ bool WinInitializeOpenGL(HWND window_handle, i32 opengl_major_version,
 
 void WinSetVSync(bool vsync) { wglSwapIntervalEXT(vsync ? 1 : 0); }
 
-}  // namespace QNES::platform::windows
+}  // namespace QNes::platform::windows
